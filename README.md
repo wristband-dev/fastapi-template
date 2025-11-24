@@ -36,6 +36,8 @@ This app consists of:
 - **Vercel (Required for Deployment)**: Integration to Vercel to host your Next.js frontend
 - **Terraform Infrastructure as Code**: Terraform scripts to provision and manage GCP, Firebase, Wristband, Github, and Vercel resources
 
+![Infrastructure Diagram](docs/infrasture-diagram.png)
+
 
 ## Table of Contents
 
