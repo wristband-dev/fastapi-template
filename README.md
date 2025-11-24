@@ -40,6 +40,10 @@ This app consists of:
 
 ![Infrastructure Diagram](docs/infrasture-diagram.png)
 
+**Auth Flow**
+
+![Auth Flow](docs/auth-flow.png)
+
 
 ## Table of Contents
 
