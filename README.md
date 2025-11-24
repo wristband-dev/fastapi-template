@@ -116,9 +116,7 @@ brew install hashicorp/tap/terraform
 ## 🚀 Getting Started
 You can start up the application locally in a few simple steps.
 
-### Fork this GitHub Project
-
-This keeps a connection to the original repository for updates:
+### Create a template of this GitHub Project
 
 1. Visit the [original repository](https://github.com/wristband-dev/fastapi-accelerator)
 2. Click the "Use this template" button in the top-right corner
