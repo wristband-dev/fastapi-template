@@ -89,8 +89,14 @@ variable "prod_signup_url" {
 }
 
 # Stripe Variables
-variable "stripe_secret_key" {
-  description = "Stripe Secret Key"
+variable "stripe_secret_key_staging" {
+  description = "Stripe Secret Key for STAGING"
+  type        = string
+  sensitive   = true
+}
+
+variable "stripe_secret_key_prod" {
+  description = "Stripe Secret Key for PROD"
   type        = string
   sensitive   = true
 }

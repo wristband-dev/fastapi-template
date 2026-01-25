@@ -57,8 +57,15 @@ variable "wb_prod_client_secret" {
 }
 
 # Stripe Variables
-variable "stripe_api_key" {
-  description = "Stripe Secret Key (sk_test_... or sk_live_...)"
+variable "stripe_test_api_key" {
+  description = "Stripe Test Secret Key (sk_test_...) - used for DEV and STAGING"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "stripe_prod_api_key" {
+  description = "Stripe Production Secret Key (sk_live_...) - used for PROD"
   type        = string
   sensitive   = true
   default     = ""

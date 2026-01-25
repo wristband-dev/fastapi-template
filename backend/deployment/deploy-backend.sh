@@ -31,6 +31,7 @@ required_vars=(
   "GCP_REGION"
   "GCP_API_NAME"
   "GCP_API_REPO_NAME"
+  "STRIPE_SECRET_KEY"
 )
 for var in "${required_vars[@]}"; do
   if [ -z "${!var}" ]; then
@@ -108,6 +109,7 @@ gcloud run deploy $SERVICE_NAME \
   --set-env-vars APPLICATION_ID="${APPLICATION_ID}" \
   --set-env-vars DOMAIN_NAME="${DOMAIN_NAME}" \
   --set-env-vars FIREBASE_SERVICE_ACCOUNT_KEY="${FIREBASE_SERVICE_ACCOUNT_KEY}" \
+  --set-env-vars STRIPE_SECRET_KEY="${STRIPE_SECRET_KEY}" \
   --memory 512Mi \
   --cpu 1 \
   --timeout 300 \

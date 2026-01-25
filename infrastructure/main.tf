@@ -36,9 +36,9 @@ terraform {
   required_version = ">= 1.0"
 }
 
-# Configure Stripe Provider
+# Configure Stripe Provider (uses test key for creating products/prices)
 provider "stripe" {
-  api_key = var.stripe_api_key
+  api_key = var.stripe_test_api_key
 }
 
 # Configure Google Cloud Provider
@@ -345,9 +345,10 @@ module "github" {
   prod_signup_url                     = "https://${var.wb_prod_application_vanity_domain}/signup"
 
   # Stripe Secrets
-  stripe_secret_key     = var.stripe_api_key
-  stripe_price_id_pro   = module.stripe.price_id_pro
-  stripe_webhook_secret = module.stripe.webhook_secret
+  stripe_secret_key_staging = var.stripe_test_api_key
+  stripe_secret_key_prod    = var.stripe_prod_api_key
+  stripe_price_id_pro       = module.stripe.price_id_pro
+  stripe_webhook_secret     = module.stripe.webhook_secret
 
   # Repository Secrets
   firebase_service_account_key     = length(module.gcp) > 0 ? module.gcp[0].firebase_service_account_key : ""

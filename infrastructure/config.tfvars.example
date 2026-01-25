@@ -70,5 +70,8 @@ github_repository = "https://github.com/your-username/your-repo.git"
 #  Keys: https://dashboard.stripe.com/apikeys
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Stripe Secret Key (sk_test_... for development, sk_live_... for production)
-stripe_api_key = "sk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+# Stripe Test Key (sk_test_...) - used for DEV and STAGING environments
+stripe_test_api_key = "YOUR_STRIPE_TEST_SECRET_KEY"
+
+# Stripe Production Key (sk_live_...) - used for PROD environment
+stripe_prod_api_key = "YOUR_STRIPE_PROD_SECRET_KEY"

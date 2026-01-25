@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # BILLING CONFIGURATION CONSTANTS
 # =============================================================================
-FREE_TRIAL_DURATION_DAYS: int | None = None  # Set to None to disable auto-cancel after trial
+FREE_TRIAL_DURATION_DAYS: int | None = 1  # Set to None to disable auto-cancel after trial
 DEFAULT_CURRENCY: str = "usd"
 
 
