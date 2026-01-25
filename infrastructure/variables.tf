@@ -56,6 +56,14 @@ variable "wb_prod_client_secret" {
   default     = ""
 }
 
+# Stripe Variables
+variable "stripe_api_key" {
+  description = "Stripe Secret Key (sk_test_... or sk_live_...)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 # Deployment Control
 variable "deployment_enabled" {
   description = "Enable deployment infrastructure (GCP, Vercel, GitHub, Wristband Staging/Prod). Set to false for local dev only."

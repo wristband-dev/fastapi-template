@@ -6,7 +6,8 @@ import logging
 from wristband.fastapi_auth import (
   get_session,
   CallbackResult,
-  CallbackResultType,
+  CompletedCallbackResult,
+  RedirectRequiredCallbackResult,
   LogoutConfig,
   SessionResponse,
 )
@@ -60,15 +61,13 @@ class WristbandService:
         callback_result: CallbackResult = await wristband_auth.callback(request=self.request)
 
         # if redirect required, return redirect response
-        if callback_result.type == CallbackResultType.REDIRECT_REQUIRED:
-            assert callback_result.redirect_url is not None
+        if isinstance(callback_result, RedirectRequiredCallbackResult):
             return await wristband_auth.create_callback_response(
                 self.request, 
                 callback_result.redirect_url
             )
         
-        # Create session data for the authenticated user, including CSRF token
-        assert callback_result.callback_data is not None
+        # callback_result is now guaranteed to be CompletedCallbackResult
         roles = [role.name.split(":")[-1] for role in callback_result.callback_data.user_info.roles]
         self.session.from_callback(
             callback_data=callback_result.callback_data, 

@@ -116,4 +116,10 @@ class Environment:
             raise ValueError("APPLICATION_ID is not set")
         return application_id
 
+    def get_stripe_secret_key(self) -> str:
+        stripe_secret_key = os.environ.get("STRIPE_SECRET_KEY")
+        if stripe_secret_key is None:
+            raise ValueError("STRIPE_SECRET_KEY is not set")
+        return stripe_secret_key
+
 environment = Environment()

@@ -1,12 +1,20 @@
 import Head from 'next/head'
 import { useRouter } from 'next/router'
-import { useEffect, ReactNode } from 'react'
+import { useEffect, ReactNode, useState } from 'react'
 import { useWristbandAuth, useWristbandSession } from '@wristband/react-client-auth'
 import { Sidebar } from '@/components/Sidebar'
 import LoadingScreen from '@/components/LoadingScreen'
+import { SubscriptionGateModal } from '@/components/billing/SubscriptionGateModal'
 import { useUser } from '@/context/UserContext'
 import { useTenant } from '@/context/TenantContext'
 import frontendApiClient from '@/client/frontend-api-client'
+
+interface StripeSubscription {
+  id: string
+  status: string
+  price_amount: number
+  cancel_at: number | null
+}
 
 interface AuthenticatedLayoutProps {
   children: ReactNode
@@ -29,6 +37,11 @@ export function AuthenticatedLayout({ children, title }: AuthenticatedLayoutProp
     setCurrentTenant,
     setIsLoadingTenant
   } = useTenant()
+
+  // Subscription gate state
+  const [subscription, setSubscription] = useState<StripeSubscription | null>(null)
+  const [isLoadingSubscription, setIsLoadingSubscription] = useState(true)
+  const [showSubscriptionGate, setShowSubscriptionGate] = useState(false)
 
   // The WristbandAuthProvider automatically calls the session endpoint on every page load
   // This ensures fresh session data is fetched from the backend each time
@@ -93,8 +106,48 @@ export function AuthenticatedLayout({ children, title }: AuthenticatedLayoutProp
     fetchUserData()
   }, [metadata, setCurrentUser, setIsLoadingUser, setCurrentTenant, setIsLoadingTenant, setTenantOptions, setIsLoadingTenants, setUserRoles, setIsLoadingRoles])
 
-  // Show loading screen while authenticating
-  if (isLoading || !isAuthenticated) {
+  // Fetch subscription status to determine if gate should be shown
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      if (!isAuthenticated || isLoading) return
+
+      try {
+        setIsLoadingSubscription(true)
+        const response = await frontendApiClient.get('/billing/subscription')
+        const sub = response.data as StripeSubscription | null
+        setSubscription(sub)
+
+        // Determine if gate should be shown based on subscription status
+        if (!sub) {
+          // No subscription - show gate (shouldn't happen due to auto-creation)
+          setShowSubscriptionGate(true)
+        } else if (sub.status === 'trialing') {
+          // User is in trial period - allow access
+          setShowSubscriptionGate(false)
+        } else if (sub.status === 'active') {
+          // Paid subscription - allow access
+          setShowSubscriptionGate(false)
+        } else if (sub.status === 'canceled' || sub.status === 'unpaid' || sub.status === 'incomplete_expired') {
+          // Subscription ended or in bad state - show gate
+          setShowSubscriptionGate(true)
+        } else {
+          // Unknown status - allow access to avoid blocking
+          setShowSubscriptionGate(false)
+        }
+      } catch (error) {
+        console.error('Error fetching subscription:', error)
+        // On error, don't block the user - they might just not have billing set up
+        setShowSubscriptionGate(false)
+      } finally {
+        setIsLoadingSubscription(false)
+      }
+    }
+
+    fetchSubscription()
+  }, [isAuthenticated, isLoading])
+
+  // Show loading screen while authenticating or checking subscription
+  if (isLoading || !isAuthenticated || isLoadingSubscription) {
     return <LoadingScreen />
   }
 
@@ -104,6 +157,9 @@ export function AuthenticatedLayout({ children, title }: AuthenticatedLayoutProp
         <title>{title} - Mobile App</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />
       </Head>
+      
+      {/* Subscription Gate Modal - blocks access when subscription is required */}
+      {showSubscriptionGate && <SubscriptionGateModal />}
       
       <Sidebar>
         {children}

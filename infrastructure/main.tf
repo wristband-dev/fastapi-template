@@ -28,8 +28,17 @@ terraform {
       source  = "hashicorp/http"
       version = "~> 3.4"
     }
+    stripe = {
+      source  = "lukasaron/stripe"
+      version = "~> 2.0"
+    }
   }
   required_version = ">= 1.0"
+}
+
+# Configure Stripe Provider
+provider "stripe" {
+  api_key = var.stripe_api_key
 }
 
 # Configure Google Cloud Provider
@@ -184,6 +193,15 @@ provider "restapi" {
   } : {}
 }
 
+# Stripe Module
+module "stripe" {
+  source = "./stripe"
+  product_name = var.gcp_app_name
+  # Webhook URL: Set manually after deployment, or leave empty to skip webhook creation
+  # You can update this later with your actual backend URL (e.g., "https://api.yourdomain.com")
+  webhook_url  = ""
+}
+
 # GCP Module (only if deployment enabled)
 module "gcp" {
   source = "./gcp"
@@ -326,6 +344,11 @@ module "github" {
   prod_backend_url                    = length(module.gcp) > 0 ? module.gcp[0].cloud_run_prod_url : ""
   prod_signup_url                     = "https://${var.wb_prod_application_vanity_domain}/signup"
 
+  # Stripe Secrets
+  stripe_secret_key     = var.stripe_api_key
+  stripe_price_id_pro   = module.stripe.price_id_pro
+  stripe_webhook_secret = module.stripe.webhook_secret
+
   # Repository Secrets
   firebase_service_account_key     = length(module.gcp) > 0 ? module.gcp[0].firebase_service_account_key : ""
   cloud_run_service_account_key    = length(module.gcp) > 0 ? module.gcp[0].cloud_run_service_account_key : ""
@@ -338,6 +361,6 @@ module "github" {
   gcp_api_name                     = var.gcp_api_name
   gcp_api_repo_name                = var.gcp_api_repo_name
 
-  depends_on = [module.gcp, module.vercel, module.wristband_staging, module.wristband_prod]
+  depends_on = [module.gcp, module.vercel, module.wristband_staging, module.wristband_prod, module.stripe]
 }
 

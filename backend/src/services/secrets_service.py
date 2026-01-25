@@ -11,14 +11,8 @@ from wristband.fastapi_auth import (
 
 # Local imports
 from services.encryption_service import get_encryption_service
-from database.doc_store import (
-    is_database_available,
-    query_documents,
-    set_document,
-    delete_document,
-    doc_exists
-)
-from services.collections import SECRETS_COLLECTION
+from database.doc_store import is_database_available
+from stores.secrets_store import SecretsStore
 from models.wristband.session import MySession
 from models.secrets import SecretConfig, SecretResponse, SecretExistsResponse
 
@@ -37,7 +31,8 @@ def get_secrets_service(
 class SecretsService:
     def __init__(self, request: Request, session: MySession):
         self.encryption_svc = get_encryption_service()
-        self.tenant_id: str = session.tenant_id
+        self.session = session
+        self.store = SecretsStore(session)
     
     def _check_database_available(self):
         """Check if database is available, return error response if not"""
@@ -66,19 +61,8 @@ class SecretsService:
             if error := self._check_encryption_available():
                 return error
             
-            # Query all secrets
-            encrypted_secrets = query_documents(
-                SECRETS_COLLECTION,
-                tenant_id=self.tenant_id
-            )
-            
-            # Decrypt secrets using list comprehension
-            decrypted_secrets = [
-                SecretResponse.from_encrypted_dict(secret_data) 
-                for secret_data in encrypted_secrets
-            ]
-            
-            return decrypted_secrets
+            # Get all secrets from store (handles decryption)
+            return self.store.get_all_secrets()
         
         except Exception as e:
             logger.exception(f"Error fetching secrets: {str(e)}")
@@ -96,23 +80,15 @@ class SecretsService:
             if error := self._check_encryption_available():
                 return error
             
-            # Convert to encrypted storage format
+            # Save secret (store handles encryption)
             try:
-                secret_data = secret.to_encrypted_dict()
+                self.store.save_secret(secret)
             except Exception as e:
                 logger.error(f"Failed to encrypt token: {str(e)}")
                 return JSONResponse(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     content={"error": "encryption_error", "message": "Failed to encrypt secret"}
                 )
-            
-            # Save to database
-            set_document(
-                collection_path=SECRETS_COLLECTION,
-                doc_id=secret.name,
-                data=secret_data,
-                tenant_id=self.tenant_id
-            )
             
             return JSONResponse(
                 status_code=status.HTTP_201_CREATED,
@@ -133,11 +109,7 @@ class SecretsService:
             if error := self._check_database_available():
                 return error
             
-            exists = doc_exists(
-                collection_path=SECRETS_COLLECTION,
-                doc_id=name,
-                tenant_id=self.tenant_id
-            )
+            exists = self.store.exists(name)
             return SecretExistsResponse(exists=exists)
         
         except Exception as e:
@@ -155,22 +127,14 @@ class SecretsService:
                 return error
             
             # Check if secret exists
-            if not doc_exists(
-                collection_path=SECRETS_COLLECTION,
-                doc_id=name,
-                tenant_id=self.tenant_id
-            ):
+            if not self.store.exists(name):
                 return JSONResponse(
                     status_code=status.HTTP_404_NOT_FOUND,
                     content={"error": "not_found", "message": "Secret not found"}
                 )
             
             # Delete the secret
-            delete_document(
-                collection_path=SECRETS_COLLECTION,
-                doc_id=name,
-                tenant_id=self.tenant_id
-            )
+            self.store.delete(name)
             
             return JSONResponse(
                 status_code=status.HTTP_204_NO_CONTENT,
@@ -183,4 +147,3 @@ class SecretsService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content={"error": "internal_error", "message": "Failed to delete secret"}
             )
-

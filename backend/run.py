@@ -8,7 +8,7 @@ import uvicorn
 from environment import environment as env
 
 # Local imports
-from wristband.fastapi_auth import SessionMiddleware
+from wristband.fastapi_auth import SessionMiddleware, SameSiteOption
 from api import router
 
 def create_app() -> FastAPI:
@@ -33,6 +33,8 @@ def create_app() -> FastAPI:
         SessionMiddleware,
         secret_key="a8f5f167f44f4964e6c998dee827110c",
         secure=env.is_deployed,  # Only secure cookies in deployment (HTTPS)
+        same_site=SameSiteOption.LAX,
+        enable_csrf_protection=True,
     )
 
     # Add CORS middleware

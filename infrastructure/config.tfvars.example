@@ -64,3 +64,11 @@ vercel_domain_name  = "your-domain.com"
 
 github_token      = "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 github_repository = "https://github.com/your-username/your-repo.git"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  STRIPE BILLING (Optional)
+#  Keys: https://dashboard.stripe.com/apikeys
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Stripe Secret Key (sk_test_... for development, sk_live_... for production)
+stripe_api_key = "sk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"

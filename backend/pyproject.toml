@@ -12,10 +12,11 @@ dependencies = [
     "httpx>=0.28.1,<0.29.0",
     "python-dotenv>=1.0.1,<2.0.0",
     "uvicorn>=0.34.0,<0.35.0",
-    "wristband-fastapi-auth (>=1.0.0,<2.0.0)",
+    "wristband-fastapi-auth (>=2.0.0,<3.0.0)",
     "firebase-admin (>=6.9.0,<7.0.0)",
     "pydantic[email] (>=2.11.7,<3.0.0)",
     "cryptography>=44.0.3,<46.0.0",
+    "stripe>=14.0.0,<15.0.0",
 ]
 
 [tool.poetry]
@@ -26,6 +27,7 @@ packages = [
     {include = "api", from = "src"},
     {include = "services", from = "src"},
     {include = "models", from = "src"},
+    {include = "stores", from = "src"},
 ]
 
 [tool.pytest.ini_options]

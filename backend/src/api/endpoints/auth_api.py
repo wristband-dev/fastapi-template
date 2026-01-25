@@ -29,7 +29,12 @@ async def logout(svc: WristbandService = Depends(get_wristband_service)) -> Resp
     return await svc.logout()
 
 @router.get("/session", dependencies=[Depends(require_session_auth)])
-async def get_session(svc: WristbandService = Depends(get_wristband_service)) -> SessionResponse:
+async def get_session(
+    response: Response,
+    svc: WristbandService = Depends(get_wristband_service)
+) -> SessionResponse:
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
     try:
         return await svc.get_session()
     except Exception as e:

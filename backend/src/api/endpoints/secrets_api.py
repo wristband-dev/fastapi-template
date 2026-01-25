@@ -5,7 +5,7 @@ from typing import List
 
 # Local imports
 from auth.wristband import require_session_auth
-from services.collections.secrets_service import get_secrets_service, SecretsService
+from services.secrets_service import get_secrets_service, SecretsService
 from models.secrets import SecretConfig, SecretResponse, SecretExistsResponse
 
 logger = logging.getLogger(__name__)

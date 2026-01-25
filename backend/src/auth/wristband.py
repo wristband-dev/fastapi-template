@@ -16,4 +16,7 @@ wristband_auth: WristbandAuth = WristbandAuth(
     )
 )
 
-require_session_auth = wristband_auth.create_session_auth_dependency()
+require_session_auth = wristband_auth.create_session_auth_dependency(
+    enable_csrf_protection=True,
+    csrf_header_name="X-CSRF-TOKEN"
+)

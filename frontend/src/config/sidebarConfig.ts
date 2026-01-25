@@ -67,6 +67,12 @@ export const sidebarItems: SidebarItem[] = [
 // Settings items shown at the bottom of sidebar (above profile)
 export const settingsItems: SidebarItem[] = [
   {
+    name: 'Billing',
+    path: '/billing',
+    icon: 'credit-card',
+    isAdmin: true
+  },
+  {
     name: 'Users',
     path: '/users',
     icon: 'users'

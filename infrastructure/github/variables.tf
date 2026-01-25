@@ -88,6 +88,24 @@ variable "prod_signup_url" {
   type        = string
 }
 
+# Stripe Variables
+variable "stripe_secret_key" {
+  description = "Stripe Secret Key"
+  type        = string
+  sensitive   = true
+}
+
+variable "stripe_price_id_pro" {
+  description = "Stripe Price ID for Pro Plan"
+  type        = string
+}
+
+variable "stripe_webhook_secret" {
+  description = "Stripe Webhook Secret"
+  type        = string
+  sensitive   = true
+}
+
 # Repository Secrets
 variable "firebase_service_account_key" {
   description = "Firebase service account key (base64 encoded)"

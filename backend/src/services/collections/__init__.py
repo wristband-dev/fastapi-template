@@ -1,3 +1,0 @@
-SECRETS_COLLECTION = "secrets"
-
-

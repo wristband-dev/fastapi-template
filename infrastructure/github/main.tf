@@ -174,3 +174,44 @@ resource "github_actions_environment_secret" "prod_next_public_application_signu
   plaintext_value = var.prod_signup_url
 }
 
+# Stripe Secrets (PROD)
+resource "github_actions_environment_secret" "prod_stripe_secret_key" {
+  repository      = var.repository_name
+  environment     = github_repository_environment.prod.environment
+  secret_name     = "STRIPE_SECRET_KEY"
+  plaintext_value = var.stripe_secret_key
+}
+
+resource "github_actions_environment_secret" "prod_stripe_price_id_pro" {
+  repository      = var.repository_name
+  environment     = github_repository_environment.prod.environment
+  secret_name     = "STRIPE_PRICE_ID_PRO"
+  plaintext_value = var.stripe_price_id_pro
+}
+
+resource "github_actions_environment_secret" "prod_stripe_webhook_secret" {
+  repository      = var.repository_name
+  environment     = github_repository_environment.prod.environment
+  secret_name     = "STRIPE_WEBHOOK_SECRET"
+  plaintext_value = var.stripe_webhook_secret
+}# Stripe Secrets (STAGING)
+resource "github_actions_environment_secret" "staging_stripe_secret_key" {
+  repository      = var.repository_name
+  environment     = github_repository_environment.staging.environment
+  secret_name     = "STRIPE_SECRET_KEY"
+  plaintext_value = var.stripe_secret_key
+}
+
+resource "github_actions_environment_secret" "staging_stripe_price_id_pro" {
+  repository      = var.repository_name
+  environment     = github_repository_environment.staging.environment
+  secret_name     = "STRIPE_PRICE_ID_PRO"
+  plaintext_value = var.stripe_price_id_pro
+}
+
+resource "github_actions_environment_secret" "staging_stripe_webhook_secret" {
+  repository      = var.repository_name
+  environment     = github_repository_environment.staging.environment
+  secret_name     = "STRIPE_WEBHOOK_SECRET"
+  plaintext_value = var.stripe_webhook_secret
+}
