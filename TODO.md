@@ -1,0 +1,2 @@
+- vercel auto bumping id - incorporate in infrastrcture to take that response name
+- postgres download locally to readme

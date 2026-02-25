@@ -16,9 +16,6 @@ class EnvironmentType(Enum):
     PROD = "PROD"
     STAGING = "STAGING"
 
-    def get_database_id(self) -> str:
-        return self.value.lower() + "-db"
-
 def get_environment() -> EnvironmentType:
     # if ENVIRONMENT is not set or is set to DEV
     env_value = os.environ.get("ENVIRONMENT", "DEV")
@@ -40,7 +37,7 @@ class Environment:
     def __init__(self):
         logger.info("Getting Environment")
         self.type: EnvironmentType = get_environment()
-        self.database_id: str = self.type.get_database_id()
+        self.database_url: str | None = os.environ.get("DATABASE_URL")
         self.frontend_url: str  = self._get_frontend_url()
         self.backend_url: str  = self._get_backend_url()
         self.client_id: str  = self._get_client_id()
@@ -49,7 +46,7 @@ class Environment:
         self.application_id: str  = self._get_application_id()
 
         logger.debug(f"Environment Type: {self.type}")
-        logger.debug(f"Database ID: {self.database_id}")
+        logger.debug(f"Database URL: {'set' if self.database_url else 'NOT SET'}")
         logger.debug(f"Frontend URL: {self.frontend_url}")
         logger.debug(f"Backend URL: {self.backend_url}")
         logger.debug(f"Client ID: {self.client_id}")

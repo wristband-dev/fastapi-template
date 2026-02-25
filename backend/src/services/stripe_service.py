@@ -14,8 +14,7 @@ from models.stripe import (
     PriceInterval,
     SubscriptionStatus,
 )
-from stores.customer_store import CustomerStore
-from models.customer import Customer
+from database.schema.customer_schema import Customer, CustomerCreate
 
 
 logger = logging.getLogger(__name__)
@@ -49,7 +48,6 @@ class StripeService:
         stripe.api_key = self.api_key
 
         self.session: MySession = session
-        self.customer_store = CustomerStore(session)
 
     async def ensure_customer(self, billing_email: Optional[str] = None) -> str:
         """
@@ -65,19 +63,15 @@ class StripeService:
 
         # 1. Find existing customer ID for this tenant
         customer_id = None
-        customers = self.customer_store.get_by_field("tenant_id", tenant_id)
+        customers = Customer.query(tenant_id=tenant_id)
         if customers:
-            customer_id = customers[0].id
+            customer_id = customers[0].stripe_id
             logger.info(f"Found existing Stripe customer for tenant {tenant_name}: {customer_id}")
             # 1.a. Update customer email if it differs (billing_email override)
             if billing_email is not None and customers[0].email != billing_email:
                 logger.info(f"Updating Stripe customer email for tenant {tenant_name}: {email}")
                 stripe_customer = stripe.Customer.modify(customer_id, email=email)
-                self.customer_store.update(customer_id, Customer(
-                    id=stripe_customer.id,
-                    email=email,
-                    tenant_id=tenant_id,
-                ))
+                Customer.update(customers[0].id, email=email)
                 customer_id = stripe_customer.id
             return customer_id
 
@@ -90,8 +84,8 @@ class StripeService:
         )
         customer_id = stripe_customer.id
 
-        self.customer_store.add(Customer(
-            id=stripe_customer.id,
+        Customer.create(CustomerCreate(
+            stripe_id=stripe_customer.id,
             tenant_id=tenant_id,
             email=email,
         ))
@@ -210,18 +204,18 @@ class StripeService:
         tenant_id = get_tenant_id(self.session)
 
         # Find customer for this tenant
-        customers = self.customer_store.get_by_field("tenant_id", tenant_id)
+        customers = Customer.query(tenant_id=tenant_id)
         if not customers:
             # No customer exists - create one with trial subscription
             logger.info(f"No customer found for tenant {tenant_id}, creating with trial subscription")
             await self.ensure_customer()
             # Re-fetch customer after creation
-            customers = self.customer_store.get_by_field("tenant_id", tenant_id)
+            customers = Customer.query(tenant_id=tenant_id)
             if not customers:
                 logger.warning(f"Failed to create customer for tenant {tenant_id}")
                 return None
 
-        customer_id = customers[0].id
+        customer_id = customers[0].stripe_id
 
         # Fetch ALL active subscriptions from Stripe
         active_subs = stripe.Subscription.list(
@@ -430,7 +424,7 @@ class StripeService:
         Get billing info including customer email and payment method status.
         """
         tenant_id = get_tenant_id(self.session)
-        customers = self.customer_store.get_by_field("tenant_id", tenant_id)
+        customers = Customer.query(tenant_id=tenant_id)
         
         if not customers:
             return {
@@ -438,7 +432,7 @@ class StripeService:
                 "has_payment_method": False
             }
         
-        customer = stripe.Customer.retrieve(customers[0].id)
+        customer = stripe.Customer.retrieve(customers[0].stripe_id)
         has_payment = bool(
             customer.invoice_settings and 
             customer.invoice_settings.default_payment_method
@@ -454,22 +448,17 @@ class StripeService:
         Update the billing email for the customer.
         """
         tenant_id = get_tenant_id(self.session)
-        customers = self.customer_store.get_by_field("tenant_id", tenant_id)
+        customers = Customer.query(tenant_id=tenant_id)
         
         if not customers:
             raise ValueError("No customer found")
         
-        customer_id = customers[0].id
+        customer_id = customers[0].stripe_id
         
         # Update in Stripe
         stripe.Customer.modify(customer_id, email=new_email)
         
-        # Update in local store
-        self.customer_store.update(customer_id, Customer(
-            id=customer_id,
-            email=new_email,
-            tenant_id=tenant_id,
-        ))
+        Customer.update(customers[0].id, email=new_email)
         
         logger.info(f"Updated billing email for customer {customer_id} to {new_email}")
         return {"billing_email": new_email}
@@ -491,12 +480,12 @@ class StripeService:
             Dict with invoice item details
         """
         tenant_id = get_tenant_id(self.session)
-        customers = self.customer_store.get_by_field("tenant_id", tenant_id)
+        customers = Customer.query(tenant_id=tenant_id)
         
         if not customers:
             raise ValueError("No customer found. Please set up billing first.")
         
-        customer_id = customers[0].id
+        customer_id = customers[0].stripe_id
         
         # Create an invoice item for the usage
         invoice_item = stripe.InvoiceItem.create(
@@ -521,13 +510,13 @@ class StripeService:
         These are charges that haven't been invoiced yet.
         """
         tenant_id = get_tenant_id(self.session)
-        customers = self.customer_store.get_by_field("tenant_id", tenant_id)
+        customers = Customer.query(tenant_id=tenant_id)
         
         if not customers:
             logger.warning(f"No customer found for tenant {tenant_id}")
             return []
         
-        customer_id = customers[0].id
+        customer_id = customers[0].stripe_id
         logger.info(f"Fetching pending usage for customer {customer_id}")
         
         items = stripe.InvoiceItem.list(

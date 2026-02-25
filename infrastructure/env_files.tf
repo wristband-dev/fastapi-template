@@ -8,13 +8,12 @@ resource "local_file" "env_dev" {
   
   content = <<-EOT
 ENVIRONMENT="DEV"
+DATABASE_URL="postgresql://app_user:localdev@127.0.0.1:5432/app_dev"
 CLIENT_ID="${module.wristband_dev[0].oauth2_client_id}"
 CLIENT_SECRET="${module.wristband_dev[0].oauth2_client_secret}"
 APPLICATION_VANITY_DOMAIN="${var.wb_dev_application_vanity_domain}"
 APPLICATION_ID="${local.wb_dev_app_id}"
 STRIPE_SECRET_KEY="${var.stripe_test_api_key}"
-${var.deployment_enabled ? "FIREBASE_SERVICE_ACCOUNT_KEY=\"${module.gcp[0].firebase_service_account_key}\"" : ""}
-${var.deployment_enabled ? "CLOUD_RUN_SERVICE_ACCOUNT_KEY=\"${module.gcp[0].cloud_run_service_account_key}\"" : ""}
 EOT
 
   file_permission = "0600"
@@ -24,7 +23,7 @@ EOT
 
 # STAGING Environment
 resource "local_file" "env_staging" {
-  count = var.deployment_enabled && var.wb_staging_application_vanity_domain != "" ? 1 : 0
+  count = var.deploy_cloud_infrastructure && var.wb_staging_application_vanity_domain != "" ? 1 : 0
   
   filename = "${path.module}/../backend/.env.staging"
   
@@ -36,7 +35,6 @@ CLIENT_SECRET="${module.wristband_staging[0].oauth2_client_secret}"
 APPLICATION_VANITY_DOMAIN="${var.wb_staging_application_vanity_domain}"
 APPLICATION_ID="${local.wb_staging_app_id}"
 STRIPE_SECRET_KEY="${var.stripe_test_api_key}"
-FIREBASE_SERVICE_ACCOUNT_KEY="${module.gcp[0].firebase_service_account_key}"
 CLOUD_RUN_SERVICE_ACCOUNT_KEY="${module.gcp[0].cloud_run_service_account_key}"
 GCP_PROJECT_ID="${var.gcp_project_id}"
 GCP_REGION="${var.gcp_region}"
@@ -51,7 +49,7 @@ EOT
 
 # PRODUCTION Environment
 resource "local_file" "env_prod" {
-  count = var.deployment_enabled && var.wb_prod_application_vanity_domain != "" ? 1 : 0
+  count = var.deploy_cloud_infrastructure && var.wb_prod_application_vanity_domain != "" ? 1 : 0
   
   filename = "${path.module}/../backend/.env.prod"
   
@@ -63,7 +61,6 @@ CLIENT_SECRET="${module.wristband_prod[0].oauth2_client_secret}"
 APPLICATION_VANITY_DOMAIN="${var.wb_prod_application_vanity_domain}"
 APPLICATION_ID="${local.wb_prod_app_id}"
 STRIPE_SECRET_KEY="${var.stripe_prod_api_key}"
-FIREBASE_SERVICE_ACCOUNT_KEY="${module.gcp[0].firebase_service_account_key}"
 CLOUD_RUN_SERVICE_ACCOUNT_KEY="${module.gcp[0].cloud_run_service_account_key}"
 GCP_PROJECT_ID="${var.gcp_project_id}"
 GCP_REGION="${var.gcp_region}"
@@ -90,7 +87,7 @@ EOT
 }
 
 resource "local_file" "frontend_env_staging" {
-  count = var.deployment_enabled && var.wb_staging_application_vanity_domain != "" ? 1 : 0
+  count = var.deploy_cloud_infrastructure && var.wb_staging_application_vanity_domain != "" ? 1 : 0
   
   filename = "${path.module}/../frontend/.env.staging"
   
@@ -108,7 +105,7 @@ EOT
 }
 
 resource "local_file" "frontend_env_prod" {
-  count = var.deployment_enabled && var.wb_prod_application_vanity_domain != "" ? 1 : 0
+  count = var.deploy_cloud_infrastructure && var.wb_prod_application_vanity_domain != "" ? 1 : 0
   
   filename = "${path.module}/../frontend/.env.prod"
   
@@ -124,4 +121,3 @@ EOT
   
   depends_on = [module.gcp, module.vercel, module.wristband_prod]
 }
-

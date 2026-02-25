@@ -1,6 +1,3 @@
-# Config
-config.tfvars
-
 # Local .terraform directories
 .terraform/
 
@@ -22,6 +19,8 @@ override.tf.json
 terraform.rc
 *.tfvars
 *.tfvars.json
+!config.tfvars
+!secrets.tfvars.example
 
 # CLI configuration
 .terraform.lock.hcl

@@ -228,7 +228,7 @@ export default function Profile() {
           <div className="mb-8 pb-8 border-b relative" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}>
             <div className="absolute top-0 right-0 group">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden cursor-pointer">
-                <img src="/authenticaiton/wristband-icon.svg" alt="Wristband" className="w-full h-full object-contain" />
+                <img src="/authentication/wristband-icon.svg" alt="Wristband" className="w-full h-full object-contain" />
               </div>
               {/* Tooltip */}
               <div className="absolute right-0 top-full mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10 shadow-lg">

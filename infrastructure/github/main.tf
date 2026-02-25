@@ -13,12 +13,6 @@ resource "github_repository_environment" "prod" {
 }
 
 # Repository Secrets (accessible across all environments)
-resource "github_actions_secret" "firebase_service_account_key" {
-  repository      = var.repository_name
-  secret_name     = "FIREBASE_SERVICE_ACCOUNT_KEY"
-  plaintext_value = var.firebase_service_account_key
-}
-
 resource "github_actions_secret" "cloud_run_service_account_key" {
   repository      = var.repository_name
   secret_name     = "CLOUD_RUN_SERVICE_ACCOUNT_KEY"
