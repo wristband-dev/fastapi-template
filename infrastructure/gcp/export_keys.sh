@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script to export service account keys (Cloud Run and Firebase)
+# Script to export service account keys (Cloud Run)
 
 # Ensure we're in the infrastructure directory (where terraform state is)
 cd "$(dirname "$0")/.." || exit
@@ -12,12 +12,6 @@ mkdir -p ../backend/.keys
 echo "Exporting Cloud Run service account key..."
 terraform output -raw cloud_run_service_account_key | base64 --decode > ../backend/.keys/cloud-run-service-account-key.json
 
-# Export the Firebase service account key
-echo "Exporting Firebase service account key..."
-terraform output -raw firebase_service_account_key | base64 --decode > ../backend/.keys/firebase-service-account-key.json
-
 echo ""
-echo "✓ Keys exported successfully:"
+echo "Keys exported successfully:"
 echo "  - backend/.keys/cloud-run-service-account-key.json"
-echo "  - backend/.keys/firebase-service-account-key.json"
-

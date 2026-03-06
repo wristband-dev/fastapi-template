@@ -72,7 +72,7 @@ variable "stripe_prod_api_key" {
 }
 
 # Deployment Control
-variable "deployment_enabled" {
+variable "deploy_cloud_infrastructure" {
   description = "Enable deployment infrastructure (GCP, Vercel, GitHub, Wristband Staging/Prod). Set to false for local dev only."
   type        = bool
   default     = false
@@ -95,12 +95,6 @@ variable "gcp_region" {
   default     = "us-central1"
 }
 
-variable "gcp_firestore_location" {
-  description = "The location for Firestore database"
-  type        = string
-  default     = "us-central"
-}
-
 variable "gcp_app_name" {
   description = "The base name of the application (used in resource naming)"
   type        = string
@@ -116,6 +110,31 @@ variable "gcp_api_repo_name" {
   description = "The name of the API repository"
   type        = string
   default     = "api-repo"
+}
+
+# Cloud SQL Variables
+variable "gcp_db_tier" {
+  description = "Cloud SQL machine tier"
+  type        = string
+  default     = "db-f1-micro"
+}
+
+variable "gcp_db_version" {
+  description = "PostgreSQL version"
+  type        = string
+  default     = "POSTGRES_16"
+}
+
+variable "gcp_db_deletion_protection" {
+  description = "Prevent accidental deletion of the Cloud SQL instance"
+  type        = bool
+  default     = true
+}
+
+variable "gcp_db_iam_users" {
+  description = "List of IAM user emails for Cloud SQL IAM authentication"
+  type        = list(string)
+  default     = []
 }
 
 # Vercel Variables

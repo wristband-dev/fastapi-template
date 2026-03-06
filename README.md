@@ -1,7 +1,7 @@
 <div align="center">
   <a href="https://wristband.dev">
     <picture>
-      <img src="https://assets.wristband.dev/images/email_branding_logo_v1.png" alt="Github" width="297" height="64">
+      <img src="https://assets.wristband.dev/images/email_branding_logo_v1.png" alt="Wristband" width="297" height="64">
     </picture>
   </a>
   <p align="center">
@@ -27,347 +27,286 @@
 ![Next.js](https://img.shields.io/badge/Next.js-13+-black.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
-This app consists of:
+This app includes:
 
-- **FastAPI Backend**: A Python backend with Wristband authentication integration
-- **Next.js Frontend**: A React-based frontend with authentication context
-- **GCP Firebase DocStore (Optional)**: Integration to GCP Firebase for document storage
-- **GCP Cloud Run (Required for Deployment)**: Integration to GCP Cloud Run to host your FastAPI backend
-- **Vercel (Required for Deployment)**: Integration to Vercel to host your Next.js frontend
-- **Terraform Infrastructure as Code**: Terraform scripts to provision and manage GCP, Firebase, Wristband, Github, and Vercel resources
+- **FastAPI Backend** — Python API with Wristband auth
+- **Next.js Frontend** — React UI with auth context
+- **PostgreSQL** — Cloud SQL (deployed) or Docker (local)
+- **Stripe Billing** — Subscriptions, trials, Customer Portal
+- **GCP Cloud Run** — Hosts the backend
+- **Vercel** — Hosts the frontend
+- **Terraform** — Provisions GCP, Wristband, GitHub, Vercel
 
-**Infrastructure Diagram**
+**Architecture**
 
-![Infrastructure Diagram](docs/infrasture-diagram.png)
+```mermaid
+flowchart TB
+    subgraph External [External Services]
+        Wristband[Wristband Auth]
+        Stripe[Stripe Billing]
+    end
+    subgraph GCP [GCP]
+        CloudRun[Cloud Run - FastAPI]
+        CloudSQL[(Cloud SQL PostgreSQL)]
+    end
+    subgraph Frontend [Frontend]
+        Vercel[Next.js on Vercel]
+    end
+    Terraform[Terraform] --> GCP
+    Terraform --> Vercel
+    Terraform --> GitHub[GitHub Actions]
+    Vercel -->|/api proxy| CloudRun
+    CloudRun --> CloudSQL
+    CloudRun --> Wristband
+    CloudRun --> Stripe
+    GitHub -->|Deploy| CloudRun
+    GitHub -->|Deploy| Vercel
+```
 
 **Auth Flow**
 
-![Auth Flow](docs/auth-flow.png)
-
+```mermaid
+sequenceDiagram
+    participant User
+    participant Frontend as Next.js
+    participant Backend as FastAPI
+    participant Wristband as Wristband Auth
+    User->>Frontend: Visit /
+    Frontend->>Backend: GET /api/auth/session
+    Backend->>Wristband: Validate token
+    alt Not authenticated
+        Frontend->>User: Landing page
+        User->>Backend: GET /api/auth/login
+        Backend->>User: Redirect to Wristband
+        User->>Wristband: Sign in
+        Wristband->>Backend: Callback
+        Backend->>User: Redirect with session
+    else Authenticated
+        Frontend->>User: Redirect to /home
+    end
+```
 
 ## Table of Contents
 
-- [🎯 Features](#-features)
-- [📋 Requirements](#-requirements)
-- [🚀 Getting Started](#-getting-started)
-- [🎨 Customization](#-customization)
-- [🔧 Deployment Requirements](#-deployment-requirements)
-- [🌐 Deployment](#-deployment)
-- [❓ Questions](#-questions)
+- [Features](#-features)
+- [Requirements](#-requirements)
+- [Getting Started](#-getting-started)
+- [Stripe Setup](#-stripe-setup)
+- [Customization](#-customization)
+- [Make Commands](#-make-commands)
+- [Deployment Requirements](#-deployment-requirements)
+- [Deployment](#-deployment)
+- [Questions](#-questions)
 
-## 🎯 Features
+## Features
 
-- **🔐 Enterprise Authentication**: Secure Wristband auth integration
-- **🏢 Multi-Tenant Architecture**: Built-in tenant management
-- **⚡ FastAPI Backend**: High-performance Python API
-- **⚛️ Next.js Frontend**: Modern React-based UI
-- **☁️ Cloud-Ready**: GCP & Vercel deployment with Terraform
-- **📊 Firebase Integration**: Optional document storage
-- **🛡️ Security First**: CSRF protection and secure sessions
-
-<br>
-<hr>
-<br>
-
-## 📋 Requirements
-
-This demo app requires the following prerequisites:
-
-### Python 3
-1. Visit [Python Downloads](https://www.python.org/downloads/) or [How to install python on Mac](https://www.dataquest.io/blog/installing-python-on-mac/)
-2. Download and install the latest Python 3 version
-3. Verify the installation by opening a terminal or command prompt and running:
-```bash
-python --version # Should show Python 3.x.x
-```
-
-### Node.js and NPM
-1. Visit [NPM Downloads](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
-2. Download and install the appropriate version for your OS
-3. Verify the installation by opening a terminal or command prompt and running:
-```bash
-node --version # Should show v18.x.x or higher
-npm --version  # Should show v8.x.x or higher
-```
-```
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-brew install node
-```
-
-### Terraform
-1. Visit [Terraform Downloads](https://developer.hashicorp.com/terraform/install)
-2. Download and install the appropriate version for your OS
-3. Verify the installation by opening a terminal or command prompt and running:
-```bash
-terraform --version # Should show Terraform v1.x.x or higher
-```
-```bash
-# macOS with Homebrew
-brew tap hashicorp/tap
-brew install hashicorp/tap/terraform
-```
+- **Enterprise Auth** — Wristband integration
+- **Multi-Tenant** — Built-in tenant management
+- **FastAPI + Next.js** — High-performance stack
+- **PostgreSQL** — SQLModel/SQLAlchemy
+- **Stripe Billing** — Subscriptions, 30-day trial, Customer Portal
+- **Cloud-Ready** — Terraform for GCP & Vercel
+- **Security** — CSRF protection, secure sessions
 
 <br>
 <hr>
 <br>
 
+## Requirements
 
+| Tool | Purpose | Verify |
+|------|---------|--------|
+| **Python 3** | Backend | [Download](https://www.python.org/downloads/) \| `python --version` |
+| **Node.js 18+** | Frontend | [Download](https://nodejs.org/) \| `node --version` |
+| **Terraform** | Infrastructure | [Download](https://developer.hashicorp.com/terraform/install) \| `terraform --version` |
+| **Docker** | Local PostgreSQL (required for local dev) and manual image build/push | [Download](https://www.docker.com/products/docker-desktop) \| `docker compose version` |
+| **gcloud** | Manual deployment to GCP | [Install](https://cloud.google.com/sdk/docs/install) \| `gcloud --version` |
 
-## 🚀 Getting Started
-You can start up the application locally in a few simple steps.
+PostgreSQL is provided via Docker for local development — no separate database install is needed.
 
-### Create a template of this GitHub Project
+<br>
+<hr>
+<br>
 
-1. Visit the [original repository](https://github.com/wristband-dev/fastapi-accelerator)
-2. Click the "Use this template" button in the top-right corner
-3. Name the repository
-3. On your local machine - Clone your repository:
+## Getting Started
+
+### 1. Clone the template
+
+1. [Use this template](https://github.com/wristband-dev/fastapi-accelerator) on GitHub
+2. Clone your repo: `git clone https://github.com/your-org/your-repo.git && cd your-repo`
+
+### 2. Install dependencies
+
 ```bash
-git clone https://github.com/your-org/your-repo-name.git
-cd your-repo-name
+make setup
 ```
 
-### Install Dependencies
-```bash
-npm run setup
-```
+### 3. Wristband setup
 
-### Wristband Setup
+1. Sign up at [wristband.dev](https://wristband.dev)
+2. Create an app (Display Name: `{App Name} (Dev)`, Domain: `dev`)
+3. Add OAuth2 Client: **Machine (M2M)**, name `Infrastructure`
+4. Assign `Application Admin Client` role to the client
+5. Copy **Client ID** & **Client Secret** → `infrastructure/secrets.tfvars` (copy from `secrets.tfvars.example` if needed)
+6. Copy **Application Vanity Domain** → `infrastructure/config.tfvars`
 
-This will host your multitenant authentication, an app is needed for each environment. We will create the application and configure an oauth2 client, then use terraform to build all the infrastructure. Let's create the **DEV** application. 
+> `config.tfvars` is tracked (non-sensitive). `secrets.tfvars` is gitignored — never commit it.
 
-#### 1) Sign up for a [Wristband account](https://wristband.dev)
+### 4. Build infrastructure
 
-#### 2) Create an App
-1. Create app manually
-2. Add Application
-   - **Display Name**: `{App Name} (Dev)`
-   - **Domain Name**: `dev`
-   - **Enable Production environment validations**: `False`
-3. Configure App
-4. Add OAuth2 Client
-   - **Client Type**: `Machine (M2M)`
-   - **Client Name**: `Infrastructure`
-5. Copy and Paste **Client ID** & **Client Secret** to [`infrastructure/config.tfvars`](infrastructure/config.tfvars)
-6. Configure Client
-   - Scroll down to the Roles section and assign `Application Admin Client` to the client
-7. Copy and Paste **Application Vanity Domain** from the Application Settings to [`infrastructure/config.tfvars`](infrastructure/config.tfvars)
+> Set `deploy_cloud_infrastructure = false` in `config.tfvars` for local-only. GCP APIs may take a few minutes to propagate — rerun if needed.
 
-
-> 💡 **Tip**: You can also follow the other [Demo App Guide](https://docs.wristband.dev/docs/setting-up-a-demo-app) for more detailed information.
-
-
-### Build the Infrastructure
-> **Note:** `deployment_enabled` is set to `false` initially for locally deployment
->
-> Additionally, sometimes the GCP Cloud Run API throws an error as it takes time for the resources to propogate. Wait a few minutes and rerun.
 ```bash
 cd infrastructure
 terraform init
-terraform apply -var-file="config.tfvars" -auto-approve
+terraform apply -var-file="config.tfvars" -var-file="secrets.tfvars" -auto-approve
 ```
 
-What this does:
-- Sets up your GCP project all the neccesary APIs and environment variables
-- Sets up the Vercel project and links the domain with all the neccesary environment variables
-- Creates all the github repository and environment secrets
+This provisions GCP, Vercel, GitHub secrets, and Wristband.
 
-### Run the application
-Runs `backend` and `frontend` concurrently
+### 5. Run the app
+
 ```bash
-npm start
+make start
 ```
+
+Starts Docker PostgreSQL, backend API, and frontend.
 
 <br>
 <hr>
 <br>
 
+## Stripe Setup
 
-## 🎨 Customization
+Stripe powers subscription billing per tenant: Pro plan, 30-day trial, Stripe Checkout/Portal, and usage-based charges.
 
-### Update Brand Colors & Logo
-The infrastructure automatically configures both **Page Branding** (login/auth pages) and **Email Branding** (transactional emails) in Wristband using the settings in [`infrastructure/config.tfvars`](infrastructure/config.tfvars):
+**Setup:** Add to `infrastructure/secrets.tfvars` before `terraform apply`:
 
 ```hcl
-# Page & Email Branding Configuration
-logo_url = "https://your-domain.com/logo.svg"  # Optional - shown on auth pages and emails
-color    = "#2563EB"  # Primary brand color - used for buttons, links, etc.
+stripe_test_api_key = "sk_test_..."   # For dev/staging
+stripe_prod_api_key = "sk_live_..."   # For production
 ```
 
-When you run `terraform apply`, this will:
-- Configure Wristband's login/auth pages with your branding
-- Configure all Wristband transactional emails with your branding
-- Automatically update [`frontend/src/config/theme.ts`](frontend/src/config/theme.ts) with your primary color
+**Keys:** [Stripe Dashboard → API Keys](https://dashboard.stripe.com/apikeys)
 
-> **Note**: Both logo and color are shared between page and email branding. The color is used for button backgrounds and borders in emails, with white text for optimal contrast.
+**Flow:**
 
-### Manual Frontend Theme Updates
-You can also manually edit [`frontend/src/config/theme.ts`](frontend/src/config/theme.ts) and change the primary color:
-```typescript
-export const theme = {
-  colors: {
-    primary: '#00AA81',  // Change to your brand color (e.g., '#2563eb' for blue)
-  }
-};
+```mermaid
+flowchart LR
+    BillingPage["/billing Page"] --> BillingAPI[Billing API]
+    BillingAPI --> StripeService[StripeService]
+    StripeService --> PostgreSQL[(PostgreSQL<br/>tenant→customer)]
+    StripeService --> Stripe[Stripe API]
 ```
 
-### Customize Landing Page
-Edit [`frontend/src/pages/UnauthenticatedView.tsx`](frontend/src/pages/UnauthenticatedView.tsx) to update your Hero
+**Details:** See [docs/stripe-architecture.md](docs/stripe-architecture.md) for the full technical reference.
 
 <br>
 <hr>
 <br>
 
-## 🔧 Deployment Requirements
+## Customization
 
-This demo app requires the following cloud services and accounts for deployment:
+### Branding
 
-### Google Cloud Platform (GCP)
-1. Visit [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new GCP account or sign in to your existing account
-3. Set up billing for your GCP account at [Billing Setup](https://console.cloud.google.com/billing)
-4. Create a new project or select an existing project
-5. Note: You'll need a valid billing account to deploy Cloud Run services
+Edit [`infrastructure/config.tfvars`](infrastructure/config.tfvars):
 
-### gcloud CLI
-1. Visit [gcloud CLI Installation](https://cloud.google.com/sdk/docs/install)
-2. Download and install the appropriate version for your OS
-3. Authenticate with your GCP account:
-```bash
-gcloud auth login
-gcloud auth application-default login
-```
-4. Verify the installation:
-```bash
-gcloud --version # Should show Google Cloud SDK version
-gcloud config list # Should show your authenticated account
-```
-```bash
-# macOS with Homebrew
-brew install --cask google-cloud-sdk
+```hcl
+logo_url = "https://your-domain.com/logo.svg"
+color    = "#2563EB"
 ```
 
-### Vercel
-1. Visit [Vercel](https://vercel.com/signup)
-2. Create a new Vercel account or sign in
-3. Generate a Vercel token:
-   - Go to [Account Settings → Tokens](https://vercel.com/account/tokens)
-   - Click "Create Token"
-   - Save the token securely for Terraform configuration
-4. (Optional) Purchase a custom domain:
-   - Go to [Domains](https://vercel.com/domains)
-   - Search and purchase your desired domain
-5. Add the token to your [`infrastructure/config.tfvars`](infrastructure/config.tfvars)
+`terraform apply` configures Wristband page/email branding and updates [`frontend/src/config/theme.ts`](frontend/src/config/theme.ts).
 
-### GitHub Account
-1. Visit [GitHub](https://github.com/signup)
-2. Create a new GitHub account or sign in
-3. Generate a Personal Access Token:
-   - Go to [Settings → Developer settings → Personal access tokens → Tokens (classic)](https://github.com/settings/tokens)
-   - Click "Generate new token (classic)"
-   - Select scopes: `repo`, `workflow`, `admin:repo_hook`
-   - Save the token securely for Terraform configuration
-4. Add the token and domain to your [`infrastructure/config.tfvars`](infrastructure/config.tfvars)
+### Landing page
 
-
-### Docker (Optional)
-> **Note**: Docker is required for building container images when manually deploying to GCP Cloud Run. It's not needed for local development or CI/CD deployments.
-1. Visit [Docker Desktop](https://www.docker.com/products/docker-desktop)
-2. Download and install Docker Desktop for your OS:
-   - **macOS**: Docker Desktop for Mac (Intel or Apple Silicon)
-   - **Windows**: Docker Desktop for Windows
-   - **Linux**: Docker Engine for Linux
-3. Start Docker Desktop and ensure it's running
-4. Verify the installation by opening a terminal or command prompt and running:
-```bash
-docker --version # Should show Docker version 20.x.x or higher
-docker compose version # Should show Docker Compose version v2.x.x or higher
-```
-```bash
-# macOS with Homebrew
-brew install --cask docker
-# Then launch Docker Desktop from Applications
-```
+Edit [`frontend/src/components/LandingView.tsx`](frontend/src/components/LandingView.tsx) to update the hero.
 
 <br>
 <hr>
 <br>
 
+## Make Commands
 
+| Command | Description |
+|---------|-------------|
+| `make setup` | Install backend + frontend dependencies |
+| `make start` | Start PostgreSQL, backend, and frontend |
+| `make dev` | Start PostgreSQL + backend only |
+| `make stop` | Stop Docker services |
+| `make clean` | Remove venvs, node_modules, Docker volumes |
 
-## 🌐 Deployment
+<br>
+<hr>
+<br>
 
-### Create additional Wristband Apps
-Create Staging & Prod Wristband Applications
+## Deployment Requirements
 
-1. Create app manually
-2. Add Application
-   - **Display Name**: `{App Name} (Staging) OR leave blank for Prod`
-   - **Domain Name**: `staging` OR `prod`
-   - **Enable Production environment validations**: `True`
-3. Configure App
-4. Add OAuth2 Client
-   - **Client Type**: `Machine (M2M)`
-   - **Client Name**: `Infrastructure`
-5. Copy and Paste **Client ID** & **Client Secret** to [`infrastructure/config.tfvars`](infrastructure/config.tfvars)
-6. Configure Client
-   - Scroll down to the Roles section and assign `Application Admin Client` to the client
-7. Copy and Paste **Application Vanity Domain** from the Application Settings to [`infrastructure/config.tfvars`](infrastructure/config.tfvars)
+- **GCP** — [Console](https://console.cloud.google.com/), billing enabled, project created
+- **Vercel** — [Sign up](https://vercel.com/signup), [create token](https://vercel.com/account/tokens)
+- **GitHub** — [PAT](https://github.com/settings/tokens) with `repo`, `workflow`, `admin:repo_hook`
+- **Docker** — Required for local dev (PostgreSQL via `docker compose`) and for manual Cloud Run deploys (build/push). CI/CD runs on GitHub and uses its own Docker; you don’t need Docker on your machine for push-to-deploy.
 
-### Build the Infrastructure
-> **Note:** `deployment_enabled` must be set to `true`
+Add tokens to `infrastructure/secrets.tfvars`.
+
+<br>
+<hr>
+<br>
+
+## Deployment
+
+### Create Staging & Prod Wristband apps
+
+1. Add Application (Domain: `staging` or `prod`, Production validations: `True`)
+2. Add OAuth2 Client: Machine (M2M), name `Infrastructure`
+3. Assign `Application Admin Client` role
+4. Copy credentials to `secrets.tfvars` and vanity domain to `config.tfvars`
+
+### Build infrastructure
+
+> Set `deploy_cloud_infrastructure = true` in `config.tfvars`
+
 ```bash
 cd infrastructure
 terraform init
-terraform apply -var-file="config.tfvars" -auto-approve
-```
-to apply infrastructure to only one target use the following format
-```bash
-terraform apply -var-file="config.tfvars" -target='module.github[0]' -auto-approve
+terraform apply -var-file="config.tfvars" -var-file="secrets.tfvars" -auto-approve
 ```
 
-### Manual Deployment
+Target a single module: `-target='module.github[0]'`
 
-<table>
-<tr>
-<td width="50%">
-
+### Manual deployment
 
 | Environment | Command |
 |-------------|---------|
-| Production  | `./deployment/deploy-prod.sh`    |
-| Staging     | `./deployment/deploy-staging.sh` |
+| Production | `./deployment/deploy-prod.sh` |
+| Staging | `./deployment/deploy-staging.sh` |
 
+### CI/CD
 
-</td>
-</tr>
-</table>
+- Push to `main` → Staging
+- Release → Prod
 
-### CI/CD Deployment
+[Workflows](.github/workflows/)
 
-Automatic deployment triggers:
-  - On push or pull request to `main` branch -> `Staging`
-  - On `Release` -> `Prod`
+### Destroy infrastructure
 
+Wristband cannot be destroyed via Terraform. Remove from state first:
 
-🔗 [Workflows](.github/workflows/)
-
-### Destroy Infrastructure 
-Remove Wristband from state management as they cannot be destroyed with Terrform
 ```bash
 cd infrastructure
 terraform state rm 'module.wristband_dev' 'module.wristband_staging' 'module.wristband_prod'
 ```
-> **Note:** Make sure you manually delete the Wristband Apps, trying to rebuild infrastructure will error as they already exist
 
-Destroy the remaining infrastructure
+Then manually delete Wristband apps. Finally:
+
 ```bash
-terraform destroy -var-file="config.tfvars" -auto-approve
+terraform destroy -var-file="config.tfvars" -var-file="secrets.tfvars" -auto-approve
 ```
 
+<br>
+<hr>
+<br>
 
-## ❓ Questions
+## Questions
 
-Reach out to the Wristband team at <support@wristband.dev> for any questions regarding this demo app.
-
-<br/>
+Reach out at <support@wristband.dev>.

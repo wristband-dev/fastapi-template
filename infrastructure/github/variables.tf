@@ -113,12 +113,6 @@ variable "stripe_webhook_secret" {
 }
 
 # Repository Secrets
-variable "firebase_service_account_key" {
-  description = "Firebase service account key (base64 encoded)"
-  type        = string
-  sensitive   = true
-}
-
 variable "cloud_run_service_account_key" {
   description = "Cloud Run service account key (base64 encoded)"
   type        = string

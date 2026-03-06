@@ -16,12 +16,6 @@ variable "region" {
   default     = "us-central1"
 }
 
-variable "firestore_location" {
-  description = "The location for Firestore database"
-  type        = string
-  default     = "us-central"
-}
-
 variable "app_name" {
   description = "The base name of the application (used in resource naming)"
   type        = string
@@ -38,6 +32,31 @@ variable "api_repo_name" {
   description = "The name of the API repository"
   type        = string
   default     = "api-repo"
+}
+
+# Cloud SQL variables
+variable "db_tier" {
+  description = "Cloud SQL machine tier"
+  type        = string
+  default     = "db-f1-micro"
+}
+
+variable "db_version" {
+  description = "PostgreSQL version"
+  type        = string
+  default     = "POSTGRES_16"
+}
+
+variable "db_deletion_protection" {
+  description = "Prevent accidental deletion of the Cloud SQL instance"
+  type        = bool
+  default     = true
+}
+
+variable "db_iam_users" {
+  description = "List of IAM user emails for Cloud SQL IAM authentication (e.g. Cloud SQL Studio)"
+  type        = list(string)
+  default     = []
 }
 
 # Wristband variables for Staging
@@ -104,5 +123,3 @@ variable "vercel_domain_name" {
   type        = string
   default     = ""
 }
-
-

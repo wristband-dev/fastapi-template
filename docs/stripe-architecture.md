@@ -1,8 +1,6 @@
 # Stripe Integration Architecture
 
-This document provides a complete technical reference for the Stripe billing integration across all layers of the application: Infrastructure (Terraform), Backend (FastAPI), Frontend (Next.js), and Database (Firestore).
-
-![Stripe Architecture Diagram](stripe-architecture-diagram.png)
+This document provides a complete technical reference for the Stripe billing integration across all layers of the application: Infrastructure (Terraform), Backend (FastAPI), Frontend (Next.js), and Database (PostgreSQL).
 
 ---
 
@@ -11,7 +9,7 @@ This document provides a complete technical reference for the Stripe billing int
 1. [Architecture Overview](#1-architecture-overview)
 2. [Infrastructure Layer (Terraform)](#2-infrastructure-layer-terraform)
 3. [Backend Layer (FastAPI)](#3-backend-layer-fastapi)
-4. [Database Layer (Firestore)](#4-database-layer-firestore)
+4. [Database Layer (PostgreSQL)](#4-database-layer-postgresql)
 5. [Frontend Layer (Next.js)](#5-frontend-layer-nextjs)
 6. [Complete Data Flows](#6-complete-data-flows)
 7. [Environment Configuration](#7-environment-configuration)
@@ -38,11 +36,10 @@ flowchart TB
     subgraph Backend [Backend - Cloud Run]
         BillingAPI[Billing API Endpoints]
         StripeService[StripeService]
-        CustomerStore[CustomerStore]
     end
     
-    subgraph Database [Database - Firestore]
-        CustomersCollection[(customers collection)]
+    subgraph Database [Database - PostgreSQL]
+        CustomerTable[(customer table)]
     end
     
     subgraph Auth [Authentication - Wristband]
@@ -51,8 +48,7 @@ flowchart TB
     
     Frontend -->|API Calls| BillingAPI
     BillingAPI --> StripeService
-    StripeService --> CustomerStore
-    CustomerStore --> CustomersCollection
+    StripeService --> CustomerTable
     StripeService -->|API Calls| Stripe_API
     StripeService -->|Redirect URLs| Stripe_Checkout
     StripeService -->|Redirect URLs| Stripe_Portal
@@ -211,12 +207,12 @@ flowchart TB
     end
     
     subgraph deps [Dependencies]
-        CustomerStore[CustomerStore]
+        CustomerSchema[Customer table<br/>customer_schema.py]
         StripeSDK[stripe Python SDK]
         Session[MySession<br/>tenant_id, email]
     end
     
-    StripeService --> CustomerStore
+    StripeService --> CustomerSchema
     StripeService --> StripeSDK
     StripeService --> Session
 ```
@@ -319,49 +315,36 @@ StripeSubscriptions = List[StripeSubscription]
 
 ---
 
-## 4. Database Layer (Firestore)
+## 4. Database Layer (PostgreSQL)
 
-**Files:**
-- `backend/src/models/customer.py`
-- `backend/src/stores/customer_store.py`
+**File:** `backend/src/database/schema/customer_schema.py`
 
 ### 4.1 Customer Model
 
 ```mermaid
 erDiagram
-    CUSTOMERS {
+    CUSTOMER {
         string id PK "Stripe Customer ID (cus_xxx)"
         string tenant_id FK "Wristband Tenant ID"
         string email "Billing email address"
-        dict metadata "Additional metadata"
+        jsonb metadata "Additional metadata"
     }
     
-    WRISTBAND_TENANTS ||--o| CUSTOMERS : "maps to"
+    WRISTBAND_TENANTS ||--o| CUSTOMER : "maps to"
 ```
 
 ### 4.2 Storage Pattern
 
 | Property | Value |
 |----------|-------|
-| Collection Name | `customers` |
+| Table Name | `customer` |
 | Scope | **Global** (NOT tenant-scoped) |
-| Document ID | Stripe Customer ID (`cus_xxx`) |
+| Primary Key | Stripe Customer ID (`cus_xxx`) |
 | Purpose | Maps Wristband `tenant_id` to Stripe `customer_id` |
 
-### 4.3 CustomerStore Configuration
+### 4.3 Schema
 
-```python
-class CustomerStore(BaseStore[Customer]):
-    COLLECTION = "customers"
-    
-    def __init__(self, session: MySession):
-        super().__init__(
-            session, 
-            self.COLLECTION, 
-            Customer,
-            use_tenant_scope=False  # Global collection
-        )
-```
+The `CustomerDB` model (SQLModel) maps to the `customer` table. `StripeService` queries by `tenant_id` to find or create the Stripe customer mapping.
 
 **Why Global?** Customer records map tenant IDs to Stripe customer IDs. They're queried by `tenant_id` field, not scoped under tenant paths.
 
@@ -369,9 +352,9 @@ class CustomerStore(BaseStore[Customer]):
 
 | Operation | Description |
 |-----------|-------------|
-| `get_by_field("tenant_id", tenant_id)` | Find customer by Wristband tenant |
-| `add(Customer(...))` | Create new customer mapping |
-| `update(customer_id, Customer(...))` | Update customer (e.g., billing email) |
+| Query by `tenant_id` | Find customer by Wristband tenant |
+| Insert `Customer` | Create new customer mapping |
+| Update `Customer` | Update customer (e.g., billing email) |
 
 ---
 
@@ -514,18 +497,18 @@ sequenceDiagram
     participant User
     participant Frontend as Next.js Frontend
     participant Backend as FastAPI Backend
-    participant Firestore as Firestore DB
+    participant PostgreSQL as PostgreSQL
     participant Stripe as Stripe API
     
     User->>Frontend: Signs up via Wristband
     Frontend->>Backend: GET /billing/subscription
-    Backend->>Firestore: Query customers by tenant_id
-    Firestore-->>Backend: No customer found
+    Backend->>PostgreSQL: Query customer by tenant_id
+    PostgreSQL-->>Backend: No customer found
     
     Note over Backend: ensure_customer() called
     Backend->>Stripe: stripe.Customer.create()
     Stripe-->>Backend: Customer ID (cus_xxx)
-    Backend->>Firestore: Store customer mapping
+    Backend->>PostgreSQL: Store customer mapping
     
     Note over Backend: Create trial subscription
     Backend->>Stripe: stripe.Subscription.create()<br/>trial_end=30 days
@@ -669,8 +652,8 @@ flowchart LR
         email[email]
     end
     
-    subgraph Firestore [Firestore]
-        customers[(customers collection)]
+    subgraph PostgreSQL [PostgreSQL]
+        customer_table[(customer table)]
     end
     
     subgraph Stripe [Stripe]
@@ -678,17 +661,17 @@ flowchart LR
         subscription[Subscription<br/>sub_xxx]
     end
     
-    tenant_id -->|lookup| customers
-    customers -->|contains| customer_mapping["id: cus_xxx<br/>tenant_id: tenant_xxx<br/>email: user@example.com"]
+    tenant_id -->|lookup| customer_table
+    customer_table -->|contains| customer_mapping["id: cus_xxx<br/>tenant_id: tenant_xxx<br/>email: user@example.com"]
     customer_mapping -->|maps to| customer
     customer -->|has| subscription
 ```
 
 **Mapping Logic:**
 1. Each Wristband tenant maps to exactly **one** Stripe customer
-2. Customer record stored globally (not tenant-scoped in Firestore)
-3. Lookup: `CustomerStore.get_by_field("tenant_id", session.tenant_id)`
-4. Customer ID stored as document ID in Firestore
+2. Customer record stored globally (not tenant-scoped)
+3. Lookup: Query `customer` table by `tenant_id` (via SQLModel/SQLAlchemy)
+4. Customer ID stored as primary key in the `customer` table
 
 ### 8.2 Authentication Flow
 
@@ -727,7 +710,7 @@ The Stripe integration provides:
 
 1. **Infrastructure**: Terraform-managed Stripe resources (product, price, portal, webhook)
 2. **Backend**: FastAPI service layer with comprehensive subscription management
-3. **Database**: Firestore for tenant-to-customer mapping
+3. **Database**: PostgreSQL (customer table) for tenant-to-customer mapping
 4. **Frontend**: React components for billing UI with Stripe Checkout/Portal integration
 
 Key features:

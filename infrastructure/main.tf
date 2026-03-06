@@ -20,6 +20,10 @@ terraform {
       source  = "hashicorp/local"
       version = "~> 2.4"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
     restapi = {
       source  = "Mastercard/restapi"
       version = "~> 1.18"
@@ -53,7 +57,7 @@ provider "google-beta" {
 # Configure Vercel Provider
 # Use a valid dummy token format when deployment is disabled to avoid validation errors
 provider "vercel" {
-  api_token = var.deployment_enabled && var.vercel_api_token != "" && length(var.vercel_api_token) == 24 ? var.vercel_api_token : "000000000000000000000000"
+  api_token = var.deploy_cloud_infrastructure && var.vercel_api_token != "" && length(var.vercel_api_token) == 24 ? var.vercel_api_token : "000000000000000000000000"
 }
 
 # Configure GitHub Provider (for secrets management)
@@ -78,7 +82,7 @@ data "http" "wristband_dev_token" {
 }
 
 data "http" "wristband_staging_token" {
-  count = var.deployment_enabled && var.wb_staging_application_vanity_domain != "" ? 1 : 0
+  count = var.deploy_cloud_infrastructure && var.wb_staging_application_vanity_domain != "" ? 1 : 0
   
   url    = "https://${var.wb_staging_application_vanity_domain}/api/v1/oauth2/token"
   method = "POST"
@@ -92,7 +96,7 @@ data "http" "wristband_staging_token" {
 }
 
 data "http" "wristband_prod_token" {
-  count = var.deployment_enabled && var.wb_prod_application_vanity_domain != "" ? 1 : 0
+  count = var.deploy_cloud_infrastructure && var.wb_prod_application_vanity_domain != "" ? 1 : 0
   
   url    = "https://${var.wb_prod_application_vanity_domain}/api/v1/oauth2/token"
   method = "POST"
@@ -115,6 +119,11 @@ locals {
   )
   github_repo_owner = split("/", local.github_repo_parsed)[0]
   github_repo_name  = split("/", local.github_repo_parsed)[1]
+}
+
+# Actual Vercel project name (from API response; may differ from input if Vercel renames e.g. fastapi-template -> fastapi-template-7)
+locals {
+  actual_vercel_project_name = var.deploy_cloud_infrastructure && length(module.vercel) > 0 ? module.vercel[0].vercel_project_name : var.vercel_project_name
 }
 
 # Extract application IDs from OAuth tokens
@@ -205,15 +214,18 @@ module "stripe" {
 # GCP Module (only if deployment enabled)
 module "gcp" {
   source = "./gcp"
-  count  = var.deployment_enabled ? 1 : 0
+  count  = var.deploy_cloud_infrastructure ? 1 : 0
 
-  project_id         = var.gcp_project_id
-  billing_account_id = var.gcp_billing_account_id
-  region             = var.gcp_region
-  firestore_location = var.gcp_firestore_location
-  app_name           = var.gcp_app_name
-  api_name           = var.gcp_api_name
-  api_repo_name      = var.gcp_api_repo_name
+  project_id             = var.gcp_project_id
+  billing_account_id     = var.gcp_billing_account_id
+  region                 = var.gcp_region
+  app_name               = var.gcp_app_name
+  api_name               = var.gcp_api_name
+  api_repo_name          = var.gcp_api_repo_name
+  db_tier                = var.gcp_db_tier
+  db_version             = var.gcp_db_version
+  db_deletion_protection = var.gcp_db_deletion_protection
+  db_iam_users           = var.gcp_db_iam_users
   
   # Wristband Staging variables
   wb_staging_application_vanity_domain = var.wb_staging_application_vanity_domain
@@ -227,20 +239,20 @@ module "gcp" {
   wb_prod_client_secret             = var.wb_prod_client_secret
   wb_prod_app_id                    = local.wb_prod_app_id
   
-  # Vercel variables
-  vercel_project_name = var.vercel_project_name
+  # Vercel variables (use actual name from Vercel API so CI/CD and domains match)
+  vercel_project_name = local.actual_vercel_project_name
   vercel_domain_name  = var.vercel_domain_name
 }
 
 # Vercel Module (only if deployment enabled)
 module "vercel" {
   source = "./vercel"
-  count  = var.deployment_enabled ? 1 : 0
+  count  = var.deploy_cloud_infrastructure ? 1 : 0
 
   vercel_api_token    = var.vercel_api_token
   vercel_project_name = var.vercel_project_name
   vercel_domain_name  = var.vercel_domain_name
-  cloud_run_url       = var.deployment_enabled && length(module.gcp) > 0 ? module.gcp[0].cloud_run_prod_url : "http://localhost:6001"
+  cloud_run_url       = var.deploy_cloud_infrastructure && length(module.gcp) > 0 ? module.gcp[0].cloud_run_prod_url : "http://localhost:6001"
 }
 
 # Wristband Module - DEV (always enabled if credentials provided)
@@ -268,7 +280,7 @@ module "wristband_dev" {
 # Wristband Module - STAGING (only if deployment enabled)
 module "wristband_staging" {
   source = "./wristband"
-  count  = var.deployment_enabled && var.wb_staging_application_vanity_domain != "" ? 1 : 0
+  count  = var.deploy_cloud_infrastructure && var.wb_staging_application_vanity_domain != "" ? 1 : 0
 
   application_vanity_domain = var.wb_staging_application_vanity_domain
   client_id                 = var.wb_staging_client_id
@@ -276,8 +288,8 @@ module "wristband_staging" {
   application_id            = local.wb_staging_app_id
   access_token              = local.wb_staging_token
   environment               = "staging"
-  frontend_url              = "https://staging-${var.vercel_project_name}.vercel.app"
-  backend_url               = var.deployment_enabled && length(module.gcp) > 0 ? module.gcp[0].cloud_run_staging_url : "http://localhost:6001"
+  frontend_url              = "https://staging-${local.actual_vercel_project_name}.vercel.app"
+  backend_url               = var.deploy_cloud_infrastructure && length(module.gcp) > 0 ? module.gcp[0].cloud_run_staging_url : "http://localhost:6001"
   self_signup_enabled       = true
   logo_url                  = var.logo_url
   color                     = var.color
@@ -292,7 +304,7 @@ module "wristband_staging" {
 # Wristband Module - PROD (only if deployment enabled)
 module "wristband_prod" {
   source = "./wristband"
-  count  = var.deployment_enabled && var.wb_prod_application_vanity_domain != "" ? 1 : 0
+  count  = var.deploy_cloud_infrastructure && var.wb_prod_application_vanity_domain != "" ? 1 : 0
 
   application_vanity_domain = var.wb_prod_application_vanity_domain
   client_id                 = var.wb_prod_client_id
@@ -300,8 +312,8 @@ module "wristband_prod" {
   application_id            = local.wb_prod_app_id
   access_token              = local.wb_prod_token
   environment               = "prod"
-  frontend_url              = var.vercel_domain_name != "" ? "https://${var.vercel_domain_name}" : "https://${var.vercel_project_name}.vercel.app"
-  backend_url               = var.deployment_enabled && length(module.gcp) > 0 ? module.gcp[0].cloud_run_prod_url : "http://localhost:6001"
+  frontend_url              = var.vercel_domain_name != "" ? "https://${var.vercel_domain_name}" : "https://${local.actual_vercel_project_name}.vercel.app"
+  backend_url               = var.deploy_cloud_infrastructure && length(module.gcp) > 0 ? module.gcp[0].cloud_run_prod_url : "http://localhost:6001"
   self_signup_enabled       = true
   logo_url                  = var.logo_url
   color                     = var.color
@@ -316,7 +328,7 @@ module "wristband_prod" {
 # GitHub Module (only if deployment enabled and token provided)
 module "github" {
   source = "./github"
-  count  = var.deployment_enabled && var.github_token != "" ? 1 : 0
+  count  = var.deploy_cloud_infrastructure && var.github_token != "" ? 1 : 0
 
   providers = {
     github = github
@@ -331,7 +343,7 @@ module "github" {
   staging_application_vanity_domain   = var.wb_staging_application_vanity_domain
   staging_client_id                   = length(module.wristband_staging) > 0 ? module.wristband_staging[0].oauth2_client_id : ""
   staging_client_secret               = length(module.wristband_staging) > 0 ? module.wristband_staging[0].oauth2_client_secret : ""
-  staging_domain_name                 = "staging-${var.vercel_project_name}.vercel.app"
+  staging_domain_name                 = "staging-${local.actual_vercel_project_name}.vercel.app"
   staging_backend_url                 = length(module.gcp) > 0 ? module.gcp[0].cloud_run_staging_url : ""
   staging_signup_url                  = "https://${var.wb_staging_application_vanity_domain}/signup"
 
@@ -340,7 +352,7 @@ module "github" {
   prod_application_vanity_domain      = var.wb_prod_application_vanity_domain
   prod_client_id                      = length(module.wristband_prod) > 0 ? module.wristband_prod[0].oauth2_client_id : ""
   prod_client_secret                  = length(module.wristband_prod) > 0 ? module.wristband_prod[0].oauth2_client_secret : ""
-  prod_domain_name                    = var.vercel_domain_name
+  prod_domain_name                    = var.vercel_domain_name != "" ? var.vercel_domain_name : "${local.actual_vercel_project_name}.vercel.app"
   prod_backend_url                    = length(module.gcp) > 0 ? module.gcp[0].cloud_run_prod_url : ""
   prod_signup_url                     = "https://${var.wb_prod_application_vanity_domain}/signup"
 
@@ -351,12 +363,11 @@ module "github" {
   stripe_webhook_secret     = module.stripe.webhook_secret
 
   # Repository Secrets
-  firebase_service_account_key     = length(module.gcp) > 0 ? module.gcp[0].firebase_service_account_key : ""
   cloud_run_service_account_key    = length(module.gcp) > 0 ? module.gcp[0].cloud_run_service_account_key : ""
   vercel_token                     = var.vercel_api_token
   vercel_org_id                    = var.vercel_org_id
   vercel_project_id                = length(module.vercel) > 0 ? module.vercel[0].vercel_project_id : ""
-  vercel_project_name              = var.vercel_project_name
+  vercel_project_name              = local.actual_vercel_project_name
   gcp_project_id                   = var.gcp_project_id
   gcp_region                       = var.gcp_region
   gcp_api_name                     = var.gcp_api_name

@@ -1,82 +1,14 @@
-# Create Firebase Admin SDK service account
-resource "google_service_account" "firebase_admin" {
-  account_id   = "firebase-admin"
-  display_name = "Firebase Admin SDK"
-  description  = "Service account for Firebase Admin SDK access"
-  project      = google_project.project.project_id
+# =============================================================================
+# Cloud Run Service Account
+# =============================================================================
 
-  depends_on = [google_app_engine_application.firestore_default]
-}
-
-# Grant Firebase Admin role
-resource "google_project_iam_member" "firebase_admin_role" {
-  project = google_project.project.project_id
-  role    = "roles/firebase.admin"
-  member  = "serviceAccount:${google_service_account.firebase_admin.email}"
-}
-
-# Grant Firestore Admin role
-resource "google_project_iam_member" "firestore_admin_role" {
-  project = google_project.project.project_id
-  role    = "roles/datastore.owner"
-  member  = "serviceAccount:${google_service_account.firebase_admin.email}"
-}
-
-# Firebase Cloud Messaging permissions are included in the firebase.admin role above
-
-# Grant Service Account Token Creator role for advanced token management
-resource "google_project_iam_member" "firebase_token_creator" {
-  project = google_project.project.project_id
-  role    = "roles/iam.serviceAccountTokenCreator"
-  member  = "serviceAccount:${google_service_account.firebase_admin.email}"
-}
-
-# Wait for IAM bindings to propagate before creating service account keys
-resource "time_sleep" "wait_for_firebase_iam" {
-  create_duration = "30s"
-
-  depends_on = [
-    google_project_iam_member.firebase_admin_role,
-    google_project_iam_member.firestore_admin_role,
-    google_project_iam_member.firebase_token_creator
-  ]
-}
-
-# Create Firebase service account key
-resource "google_service_account_key" "firebase_key" {
-  service_account_id = google_service_account.firebase_admin.name
-
-  depends_on = [time_sleep.wait_for_firebase_iam]
-}
-
-# Create service account for Cloud Run
 resource "google_service_account" "cloud_run_sa" {
   account_id   = "cloud-run-service"
   display_name = "Cloud Run Service Account"
   description  = "Service account for Cloud Run services"
   project      = google_project.project.project_id
-}
 
-# Wait for Cloud Run IAM bindings to propagate
-resource "time_sleep" "wait_for_cloud_run_iam" {
-  create_duration = "30s"
-
-  depends_on = [
-    google_project_iam_member.cloud_run_invoker_role,
-    google_project_iam_member.cloud_run_firestore_role,
-    google_project_iam_member.cloud_run_service_usage_consumer,
-    google_project_iam_member.cloud_run_admin,
-    google_project_iam_member.cloud_run_iam_admin,
-    google_project_iam_member.service_account_user,
-    google_project_iam_member.cloud_build_editor
-  ]
-}
-
-# Create Cloud Run service account key
-resource "google_service_account_key" "cloud_run_key" {
-  service_account_id = google_service_account.cloud_run_sa.name
-
-  depends_on = [time_sleep.wait_for_cloud_run_iam]
+  depends_on = [time_sleep.wait_for_apis]
 }
 
 # Grant Cloud Run Invoker role
@@ -86,10 +18,10 @@ resource "google_project_iam_member" "cloud_run_invoker_role" {
   member  = "serviceAccount:${google_service_account.cloud_run_sa.email}"
 }
 
-# Grant Firestore User role to Cloud Run service account
-resource "google_project_iam_member" "cloud_run_firestore_role" {
+# Grant Cloud SQL Client role (connect to Cloud SQL via proxy)
+resource "google_project_iam_member" "cloud_run_sql_client" {
   project = google_project.project.project_id
-  role    = "roles/datastore.user"
+  role    = "roles/cloudsql.client"
   member  = "serviceAccount:${google_service_account.cloud_run_sa.email}"
 }
 
@@ -107,14 +39,14 @@ resource "google_project_iam_member" "cloud_run_admin" {
   member  = "serviceAccount:${google_service_account.cloud_run_sa.email}"
 }
 
-# Grant the service account Project IAM Admin role for Cloud Run service creation
+# Grant Project IAM Admin role for Cloud Run service creation
 resource "google_project_iam_member" "cloud_run_iam_admin" {
   project = google_project.project.project_id
   role    = "roles/resourcemanager.projectIamAdmin"
   member  = "serviceAccount:${google_service_account.cloud_run_sa.email}"
 }
 
-# Grant IAM Service Account User role to allow the service account to act as itself
+# Grant IAM Service Account User role
 resource "google_project_iam_member" "service_account_user" {
   project = google_project.project.project_id
   role    = "roles/iam.serviceAccountUser"
@@ -126,4 +58,64 @@ resource "google_project_iam_member" "cloud_build_editor" {
   project = google_project.project.project_id
   role    = "roles/cloudbuild.builds.editor"
   member  = "serviceAccount:${google_service_account.cloud_run_sa.email}"
+}
+
+# Wait for Cloud Run IAM bindings to propagate
+resource "time_sleep" "wait_for_cloud_run_iam" {
+  create_duration = "30s"
+
+  depends_on = [
+    google_project_iam_member.cloud_run_invoker_role,
+    google_project_iam_member.cloud_run_sql_client,
+    google_project_iam_member.cloud_run_service_usage_consumer,
+    google_project_iam_member.cloud_run_admin,
+    google_project_iam_member.cloud_run_iam_admin,
+    google_project_iam_member.service_account_user,
+    google_project_iam_member.cloud_build_editor,
+  ]
+}
+
+# Create Cloud Run service account key (for CI/CD deployments)
+resource "google_service_account_key" "cloud_run_key" {
+  service_account_id = google_service_account.cloud_run_sa.name
+
+  depends_on = [time_sleep.wait_for_cloud_run_iam]
+}
+
+# =============================================================================
+# Secret Manager Access — Cloud Run reads DATABASE_URL from Secret Manager
+# =============================================================================
+
+resource "google_secret_manager_secret_iam_member" "cloud_run_db_url_staging" {
+  project   = google_project.project.project_id
+  secret_id = google_secret_manager_secret.database_url_staging.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.cloud_run_sa.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "cloud_run_db_url_prod" {
+  project   = google_project.project.project_id
+  secret_id = google_secret_manager_secret.database_url_prod.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.cloud_run_sa.email}"
+}
+
+# =============================================================================
+# IAM Database Authentication (Cloud SQL Studio access)
+# =============================================================================
+
+resource "google_project_iam_member" "sql_iam_users" {
+  for_each = toset(var.db_iam_users)
+
+  project = google_project.project.project_id
+  role    = "roles/cloudsql.instanceUser"
+  member  = "user:${each.value}"
+}
+
+resource "google_project_iam_member" "sql_iam_clients" {
+  for_each = toset(var.db_iam_users)
+
+  project = google_project.project.project_id
+  role    = "roles/cloudsql.client"
+  member  = "user:${each.value}"
 }

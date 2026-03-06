@@ -1,5 +1,4 @@
 # GCP Infrastructure Module
-# This module creates all GCP resources for the Score Keeper application
 
 # Create the project if it doesn't exist
 resource "google_project" "project" {
@@ -22,15 +21,11 @@ resource "google_project_service" "services" {
     "cloudresourcemanager.googleapis.com",
     "serviceusage.googleapis.com",
     "run.googleapis.com",
-    "firebase.googleapis.com",
-    "firestore.googleapis.com",
-    "identitytoolkit.googleapis.com",
-    "cloudbilling.googleapis.com",
+    "sqladmin.googleapis.com",
+    "secretmanager.googleapis.com",
     "iam.googleapis.com",
-    "fcm.googleapis.com",
-    "fcmregistrations.googleapis.com",
-    "mobilecrashreporting.googleapis.com",
-    "domains.googleapis.com"
+    "cloudbilling.googleapis.com",
+    "domains.googleapis.com",
   ])
 
   project = google_project.project.project_id
@@ -49,64 +44,9 @@ resource "time_sleep" "wait_for_apis" {
   depends_on = [google_project_service.services]
 }
 
-# Create the default Firestore database (required)
-# Note: App Engine application enables Firestore without needing explicit Firebase project resource
-resource "google_app_engine_application" "firestore_default" {
-  project       = google_project.project.project_id
-  location_id   = var.firestore_location
-  database_type = "CLOUD_FIRESTORE"
-
-  depends_on = [
-    time_sleep.wait_for_apis
-  ]
+# Sanitized app name for GCP resource identifiers (no spaces)
+# Cloud SQL: lowercase + hyphens; Secret Manager: lowercase + underscores
+locals {
+  app_name_resource = replace(lower(var.app_name), " ", "-")   # fast-api-template
+  app_name_secret   = replace(replace(lower(var.app_name), " ", "_"), "-", "_")  # fast_api_template
 }
-
-# Create separate Firestore databases for each environment
-resource "google_firestore_database" "dev" {
-  provider    = google-beta
-  project     = google_project.project.project_id
-  name        = "dev-db"
-  location_id = var.region
-  type        = "FIRESTORE_NATIVE"
-
-  point_in_time_recovery_enablement = "POINT_IN_TIME_RECOVERY_DISABLED"
-  deletion_policy                   = "ABANDON"
-
-  depends_on = [
-    google_app_engine_application.firestore_default
-  ]
-}
-
-resource "google_firestore_database" "staging" {
-  provider    = google-beta
-  project     = google_project.project.project_id
-  name        = "staging-db"
-  location_id = var.region
-  type        = "FIRESTORE_NATIVE"
-
-  point_in_time_recovery_enablement = "POINT_IN_TIME_RECOVERY_DISABLED"
-  deletion_policy                   = "ABANDON"
-
-  depends_on = [
-    google_app_engine_application.firestore_default
-  ]
-}
-
-resource "google_firestore_database" "prod" {
-  provider    = google-beta
-  project     = google_project.project.project_id
-  name        = "prod-db"
-  location_id = var.region
-  type        = "FIRESTORE_NATIVE"
-
-  point_in_time_recovery_enablement = "POINT_IN_TIME_RECOVERY_DISABLED"
-  deletion_policy                   = "ABANDON"
-
-  depends_on = [
-    google_app_engine_application.firestore_default
-  ]
-}
-
-# Firebase location is set by the App Engine application above
-# No additional location resource needed for FCM
-

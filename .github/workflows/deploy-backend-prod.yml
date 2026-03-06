@@ -29,7 +29,6 @@ jobs:
     - name: Deploy to Cloud Run (Production)
       env:
         CLOUD_RUN_SERVICE_ACCOUNT_KEY: ${{ secrets.CLOUD_RUN_SERVICE_ACCOUNT_KEY }}
-        FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
         DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
         CLIENT_ID: ${{ secrets.CLIENT_ID }}
         CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
