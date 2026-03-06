@@ -121,6 +121,11 @@ locals {
   github_repo_name  = split("/", local.github_repo_parsed)[1]
 }
 
+# Actual Vercel project name (from API response; may differ from input if Vercel renames e.g. fastapi-template -> fastapi-template-7)
+locals {
+  actual_vercel_project_name = var.deploy_cloud_infrastructure && length(module.vercel) > 0 ? module.vercel[0].vercel_project_name : var.vercel_project_name
+}
+
 # Extract application IDs from OAuth tokens
 locals {
   wb_dev_token = length(data.http.wristband_dev_token) > 0 ? jsondecode(data.http.wristband_dev_token[0].response_body).access_token : ""
@@ -234,8 +239,8 @@ module "gcp" {
   wb_prod_client_secret             = var.wb_prod_client_secret
   wb_prod_app_id                    = local.wb_prod_app_id
   
-  # Vercel variables
-  vercel_project_name = var.vercel_project_name
+  # Vercel variables (use actual name from Vercel API so CI/CD and domains match)
+  vercel_project_name = local.actual_vercel_project_name
   vercel_domain_name  = var.vercel_domain_name
 }
 
@@ -283,7 +288,7 @@ module "wristband_staging" {
   application_id            = local.wb_staging_app_id
   access_token              = local.wb_staging_token
   environment               = "staging"
-  frontend_url              = "https://staging-${var.vercel_project_name}.vercel.app"
+  frontend_url              = "https://staging-${local.actual_vercel_project_name}.vercel.app"
   backend_url               = var.deploy_cloud_infrastructure && length(module.gcp) > 0 ? module.gcp[0].cloud_run_staging_url : "http://localhost:6001"
   self_signup_enabled       = true
   logo_url                  = var.logo_url
@@ -307,7 +312,7 @@ module "wristband_prod" {
   application_id            = local.wb_prod_app_id
   access_token              = local.wb_prod_token
   environment               = "prod"
-  frontend_url              = var.vercel_domain_name != "" ? "https://${var.vercel_domain_name}" : "https://${var.vercel_project_name}.vercel.app"
+  frontend_url              = var.vercel_domain_name != "" ? "https://${var.vercel_domain_name}" : "https://${local.actual_vercel_project_name}.vercel.app"
   backend_url               = var.deploy_cloud_infrastructure && length(module.gcp) > 0 ? module.gcp[0].cloud_run_prod_url : "http://localhost:6001"
   self_signup_enabled       = true
   logo_url                  = var.logo_url
@@ -338,7 +343,7 @@ module "github" {
   staging_application_vanity_domain   = var.wb_staging_application_vanity_domain
   staging_client_id                   = length(module.wristband_staging) > 0 ? module.wristband_staging[0].oauth2_client_id : ""
   staging_client_secret               = length(module.wristband_staging) > 0 ? module.wristband_staging[0].oauth2_client_secret : ""
-  staging_domain_name                 = "staging-${var.vercel_project_name}.vercel.app"
+  staging_domain_name                 = "staging-${local.actual_vercel_project_name}.vercel.app"
   staging_backend_url                 = length(module.gcp) > 0 ? module.gcp[0].cloud_run_staging_url : ""
   staging_signup_url                  = "https://${var.wb_staging_application_vanity_domain}/signup"
 
@@ -347,7 +352,7 @@ module "github" {
   prod_application_vanity_domain      = var.wb_prod_application_vanity_domain
   prod_client_id                      = length(module.wristband_prod) > 0 ? module.wristband_prod[0].oauth2_client_id : ""
   prod_client_secret                  = length(module.wristband_prod) > 0 ? module.wristband_prod[0].oauth2_client_secret : ""
-  prod_domain_name                    = var.vercel_domain_name
+  prod_domain_name                    = var.vercel_domain_name != "" ? var.vercel_domain_name : "${local.actual_vercel_project_name}.vercel.app"
   prod_backend_url                    = length(module.gcp) > 0 ? module.gcp[0].cloud_run_prod_url : ""
   prod_signup_url                     = "https://${var.wb_prod_application_vanity_domain}/signup"
 
@@ -362,7 +367,7 @@ module "github" {
   vercel_token                     = var.vercel_api_token
   vercel_org_id                    = var.vercel_org_id
   vercel_project_id                = length(module.vercel) > 0 ? module.vercel[0].vercel_project_id : ""
-  vercel_project_name              = var.vercel_project_name
+  vercel_project_name              = local.actual_vercel_project_name
   gcp_project_id                   = var.gcp_project_id
   gcp_region                       = var.gcp_region
   gcp_api_name                     = var.gcp_api_name

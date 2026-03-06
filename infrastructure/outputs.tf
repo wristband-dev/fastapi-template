@@ -57,6 +57,11 @@ output "vercel_project_id" {
   value       = var.deploy_cloud_infrastructure && length(module.vercel) > 0 ? module.vercel[0].vercel_project_id : "Deployment not enabled"
 }
 
+output "vercel_project_name" {
+  description = "The actual Vercel project name (from API; may differ from config if Vercel renames e.g. fastapi-template -> fastapi-template-7)"
+  value       = var.deploy_cloud_infrastructure && length(module.vercel) > 0 ? module.vercel[0].vercel_project_name : "Deployment not enabled"
+}
+
 output "vercel_deployment_url" {
   description = "The production deployment URL"
   value       = var.deploy_cloud_infrastructure && length(module.vercel) > 0 ? module.vercel[0].vercel_deployment_url : "Deployment not enabled"

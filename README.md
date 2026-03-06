@@ -119,8 +119,10 @@ sequenceDiagram
 | **Python 3** | Backend | [Download](https://www.python.org/downloads/) \| `python --version` |
 | **Node.js 18+** | Frontend | [Download](https://nodejs.org/) \| `node --version` |
 | **Terraform** | Infrastructure | [Download](https://developer.hashicorp.com/terraform/install) \| `terraform --version` |
-| **Docker** | Local PostgreSQL | [Download](https://www.docker.com/products/docker-desktop) \| `docker compose version` |
-| **gcloud** | Deployment | [Install](https://cloud.google.com/sdk/docs/install) \| `gcloud --version` |
+| **Docker** | Local PostgreSQL (required for local dev) and manual image build/push | [Download](https://www.docker.com/products/docker-desktop) \| `docker compose version` |
+| **gcloud** | Manual deployment to GCP | [Install](https://cloud.google.com/sdk/docs/install) \| `gcloud --version` |
+
+PostgreSQL is provided via Docker for local development — no separate database install is needed.
 
 <br>
 <hr>
@@ -243,7 +245,7 @@ Edit [`frontend/src/components/LandingView.tsx`](frontend/src/components/Landing
 - **GCP** — [Console](https://console.cloud.google.com/), billing enabled, project created
 - **Vercel** — [Sign up](https://vercel.com/signup), [create token](https://vercel.com/account/tokens)
 - **GitHub** — [PAT](https://github.com/settings/tokens) with `repo`, `workflow`, `admin:repo_hook`
-- **Docker** — Required for manual Cloud Run deploys (not for local dev or CI/CD)
+- **Docker** — Required for local dev (PostgreSQL via `docker compose`) and for manual Cloud Run deploys (build/push). CI/CD runs on GitHub and uses its own Docker; you don’t need Docker on your machine for push-to-deploy.
 
 Add tokens to `infrastructure/secrets.tfvars`.
 

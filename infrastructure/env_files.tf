@@ -8,7 +8,7 @@ resource "local_file" "env_dev" {
   
   content = <<-EOT
 ENVIRONMENT="DEV"
-DATABASE_URL="postgresql://app_user:localdev@127.0.0.1:5432/app_dev"
+DATABASE_URL="postgresql://app_user:localdev@127.0.0.1:5433/app_dev"
 CLIENT_ID="${module.wristband_dev[0].oauth2_client_id}"
 CLIENT_SECRET="${module.wristband_dev[0].oauth2_client_secret}"
 APPLICATION_VANITY_DOMAIN="${var.wb_dev_application_vanity_domain}"
@@ -29,7 +29,7 @@ resource "local_file" "env_staging" {
   
   content = <<-EOT
 ENVIRONMENT="STAGING"
-DOMAIN_NAME="staging-${var.vercel_project_name}.vercel.app"
+DOMAIN_NAME="staging-${local.actual_vercel_project_name}.vercel.app"
 CLIENT_ID="${module.wristband_staging[0].oauth2_client_id}"
 CLIENT_SECRET="${module.wristband_staging[0].oauth2_client_secret}"
 APPLICATION_VANITY_DOMAIN="${var.wb_staging_application_vanity_domain}"
@@ -55,7 +55,7 @@ resource "local_file" "env_prod" {
   
   content = <<-EOT
 ENVIRONMENT="PROD"
-DOMAIN_NAME="${var.vercel_domain_name != "" ? var.vercel_domain_name : "${var.vercel_project_name}.vercel.app"}"
+DOMAIN_NAME="${var.vercel_domain_name != "" ? var.vercel_domain_name : "${local.actual_vercel_project_name}.vercel.app"}"
 CLIENT_ID="${module.wristband_prod[0].oauth2_client_id}"
 CLIENT_SECRET="${module.wristband_prod[0].oauth2_client_secret}"
 APPLICATION_VANITY_DOMAIN="${var.wb_prod_application_vanity_domain}"
@@ -96,7 +96,7 @@ NEXT_PUBLIC_APPLICATION_SIGNUP_URL="https://${var.wb_staging_application_vanity_
 NEXT_PUBLIC_BACKEND_URL="${module.gcp[0].cloud_run_staging_url}"
 VERCEL_ORG_ID="${var.vercel_org_id}"
 VERCEL_PROJECT_ID="${module.vercel[0].vercel_project_id}"
-VERCEL_PROJECT_NAME="${var.vercel_project_name}"
+VERCEL_PROJECT_NAME="${local.actual_vercel_project_name}"
 EOT
 
   file_permission = "0600"
@@ -114,7 +114,7 @@ NEXT_PUBLIC_APPLICATION_SIGNUP_URL="https://${var.wb_prod_application_vanity_dom
 NEXT_PUBLIC_BACKEND_URL="${module.gcp[0].cloud_run_prod_url}"
 VERCEL_ORG_ID="${var.vercel_org_id}"
 VERCEL_PROJECT_ID="${module.vercel[0].vercel_project_id}"
-VERCEL_PROJECT_NAME="${var.vercel_project_name}"
+VERCEL_PROJECT_NAME="${local.actual_vercel_project_name}"
 EOT
 
   file_permission = "0600"

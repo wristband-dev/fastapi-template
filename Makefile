@@ -27,7 +27,7 @@ dev: stop db api
 db:
 	@cd backend && docker compose up -d
 	@echo ""
-	@echo "Docker PostgreSQL running on localhost:5432"
+	@echo "Docker PostgreSQL running on localhost:5433"
 
 api:
 	@cd backend && .venv/bin/python run.py

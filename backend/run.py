@@ -1,8 +1,10 @@
 # Standard library imports
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 import logging
 import uvicorn
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 # Load environment variables BEFORE local imports
 from environment import environment as env
@@ -11,8 +13,20 @@ from environment import environment as env
 from wristband.fastapi_auth import SessionMiddleware, SameSiteOption
 from api import router
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Run startup (e.g. create DB tables in staging/prod) and shutdown."""
+    if env.is_deployed:
+        from database import create_tables, setup_permissions
+        create_tables()
+        setup_permissions()
+    yield
+    # Shutdown: nothing to do for DB
+
+
 def create_app() -> FastAPI:
-    app = FastAPI()
+    app = FastAPI(lifespan=lifespan)
 
     # Set up logging
     if not logging.getLogger().hasHandlers():

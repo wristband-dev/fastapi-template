@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# DATABASE_URL and Cloud SQL connection are managed by Terraform only (Secret Manager + Cloud Run template).
+# This script only updates the container image and the env vars listed below; it does not touch Terraform-owned config.
+
 # Parse arguments
 ENV=""
 while [[ $# -gt 0 ]]; do
@@ -93,7 +96,7 @@ docker build -t $IMAGE_NAME --platform linux/amd64 --build-arg ENVIRONMENT=$ENV 
 echo "📤 Pushing image to Artifact Registry..."
 docker push $IMAGE_NAME
 
-# Deploy to Cloud Run
+# Deploy to Cloud Run (--update-env-vars so Terraform-set DATABASE_URL and other secrets are preserved)
 echo "☁️  Deploying to Cloud Run..."
 gcloud run deploy $SERVICE_NAME \
   --image $IMAGE_NAME \
@@ -101,13 +104,13 @@ gcloud run deploy $SERVICE_NAME \
   --region $REGION \
   --allow-unauthenticated \
   --port 8080 \
-  --set-env-vars ENVIRONMENT=$ENV \
-  --set-env-vars CLIENT_ID="${CLIENT_ID}" \
-  --set-env-vars CLIENT_SECRET="${CLIENT_SECRET}" \
-  --set-env-vars APPLICATION_VANITY_DOMAIN="${APPLICATION_VANITY_DOMAIN}" \
-  --set-env-vars APPLICATION_ID="${APPLICATION_ID}" \
-  --set-env-vars DOMAIN_NAME="${DOMAIN_NAME}" \
-  --set-env-vars STRIPE_SECRET_KEY="${STRIPE_SECRET_KEY}" \
+  --update-env-vars ENVIRONMENT=$ENV \
+  --update-env-vars CLIENT_ID="${CLIENT_ID}" \
+  --update-env-vars CLIENT_SECRET="${CLIENT_SECRET}" \
+  --update-env-vars APPLICATION_VANITY_DOMAIN="${APPLICATION_VANITY_DOMAIN}" \
+  --update-env-vars APPLICATION_ID="${APPLICATION_ID}" \
+  --update-env-vars DOMAIN_NAME="${DOMAIN_NAME}" \
+  --update-env-vars STRIPE_SECRET_KEY="${STRIPE_SECRET_KEY}" \
   --memory 512Mi \
   --cpu 1 \
   --timeout 300 \
